@@ -1,16 +1,9 @@
 //! Router implementation using radix tree (matchit)
 
-use crate::error::ApiError;
 use crate::handler::{into_boxed_handler, BoxedHandler, Handler};
-use crate::request::Request;
-use crate::response::{IntoResponse, Response};
-use bytes::Bytes;
-use http::{Extensions, Method, StatusCode};
-use http_body_util::Full;
+use http::{Extensions, Method};
 use matchit::Router as MatchitRouter;
 use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 
 /// HTTP method router for a single path
@@ -141,7 +134,7 @@ impl Router {
         &self,
         path: &str,
         method: &Method,
-    ) -> RouteMatch {
+    ) -> RouteMatch<'_> {
         match self.inner.at(path) {
             Ok(matched) => {
                 let method_router = matched.value;
@@ -192,16 +185,14 @@ pub(crate) enum RouteMatch<'a> {
 /// Convert {param} style to :param for matchit
 fn convert_path_params(path: &str) -> String {
     let mut result = String::with_capacity(path.len());
-    let mut in_param = false;
     
     for ch in path.chars() {
         match ch {
             '{' => {
-                in_param = true;
                 result.push(':');
             }
             '}' => {
-                in_param = false;
+                // Skip closing brace
             }
             _ => {
                 result.push(ch);

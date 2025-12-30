@@ -2,21 +2,20 @@
 
 use crate::error::ApiError;
 use crate::request::Request;
-use crate::response::{IntoResponse, Response};
+use crate::response::IntoResponse;
 use crate::router::{RouteMatch, Router};
 use bytes::Bytes;
-use http::{header, Method, StatusCode};
+use http::{header, StatusCode};
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
-use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tracing::{error, info, span, Level};
+use tracing::{error, info};
 
 /// Internal server struct
 pub(crate) struct Server {

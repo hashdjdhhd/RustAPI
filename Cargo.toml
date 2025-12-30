@@ -4,6 +4,7 @@ members = [
     "crates/rustapi-rs",
     "crates/rustapi-core",
     "crates/rustapi-macros",
+    "examples/hello-world",
 ]
 
 [workspace.package]

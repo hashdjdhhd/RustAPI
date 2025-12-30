@@ -110,39 +110,6 @@ impl IntoResponse for ApiError {
     }
 }
 
-/// JSON response wrapper
-///
-/// Automatically serializes the inner value to JSON with proper content-type.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use rustapi_rs::prelude::*;
-///
-/// #[derive(Serialize)]
-/// struct User { name: String }
-///
-/// async fn get_user() -> Json<User> {
-///     Json(User { name: "Alice".to_string() })
-/// }
-/// ```
-#[derive(Debug, Clone)]
-pub struct Json<T>(pub T);
-
-impl<T: Serialize> IntoResponse for Json<T> {
-    fn into_response(self) -> Response {
-        match serde_json::to_vec(&self.0) {
-            Ok(body) => http::Response::builder()
-                .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Full::new(Bytes::from(body)))
-                .unwrap(),
-            Err(err) => ApiError::internal(format!("Failed to serialize response: {}", err))
-                .into_response(),
-        }
-    }
-}
-
 /// 201 Created response wrapper
 ///
 /// Returns HTTP 201 with JSON body.

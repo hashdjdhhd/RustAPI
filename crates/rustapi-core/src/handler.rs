@@ -1,7 +1,6 @@
 //! Handler trait and utilities
 
-use crate::error::Result;
-use crate::extract::{FromRequest, FromRequestParts};
+use crate::extract::FromRequest;
 use crate::request::Request;
 use crate::response::{IntoResponse, Response};
 use std::future::Future;
@@ -9,7 +8,7 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 
 /// Trait representing an async handler function
-pub trait Handler<T>: Clone + Send + Sized + 'static {
+pub trait Handler<T>: Clone + Send + Sync + Sized + 'static {
     /// The response type
     type Future: Future<Output = Response> + Send + 'static;
 
@@ -46,7 +45,7 @@ impl<H: Clone, T> Clone for HandlerService<H, T> {
 // 0 args
 impl<F, Fut, Res> Handler<()> for F
 where
-    F: FnOnce() -> Fut + Clone + Send + 'static,
+    F: FnOnce() -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send + 'static,
     Res: IntoResponse,
 {
@@ -62,7 +61,7 @@ where
 // 1 arg
 impl<F, Fut, Res, T1> Handler<(T1,)> for F
 where
-    F: FnOnce(T1) -> Fut + Clone + Send + 'static,
+    F: FnOnce(T1) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send + 'static,
     Res: IntoResponse,
     T1: FromRequest + Send + 'static,
@@ -83,7 +82,7 @@ where
 // 2 args
 impl<F, Fut, Res, T1, T2> Handler<(T1, T2)> for F
 where
-    F: FnOnce(T1, T2) -> Fut + Clone + Send + 'static,
+    F: FnOnce(T1, T2) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send + 'static,
     Res: IntoResponse,
     T1: FromRequest + Send + 'static,
@@ -109,7 +108,7 @@ where
 // 3 args
 impl<F, Fut, Res, T1, T2, T3> Handler<(T1, T2, T3)> for F
 where
-    F: FnOnce(T1, T2, T3) -> Fut + Clone + Send + 'static,
+    F: FnOnce(T1, T2, T3) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send + 'static,
     Res: IntoResponse,
     T1: FromRequest + Send + 'static,
@@ -140,7 +139,7 @@ where
 // 4 args
 impl<F, Fut, Res, T1, T2, T3, T4> Handler<(T1, T2, T3, T4)> for F
 where
-    F: FnOnce(T1, T2, T3, T4) -> Fut + Clone + Send + 'static,
+    F: FnOnce(T1, T2, T3, T4) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send + 'static,
     Res: IntoResponse,
     T1: FromRequest + Send + 'static,
@@ -176,7 +175,7 @@ where
 // 5 args
 impl<F, Fut, Res, T1, T2, T3, T4, T5> Handler<(T1, T2, T3, T4, T5)> for F
 where
-    F: FnOnce(T1, T2, T3, T4, T5) -> Fut + Clone + Send + 'static,
+    F: FnOnce(T1, T2, T3, T4, T5) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send + 'static,
     Res: IntoResponse,
     T1: FromRequest + Send + 'static,
@@ -227,6 +226,8 @@ where
 {
     Box::new(move |req| {
         let handler = handler.clone();
-        handler.call(req)
+        Box::pin(async move {
+            handler.call(req).await
+        })
     })
 }

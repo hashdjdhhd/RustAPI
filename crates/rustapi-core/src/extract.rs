@@ -4,14 +4,15 @@
 
 use crate::error::{ApiError, Result};
 use crate::request::Request;
+use crate::response::IntoResponse;
 use bytes::Bytes;
+use http::{header, StatusCode};
+use http_body_util::Full;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::future::Future;
-use std::marker::PhantomData;
-use std::ops::Deref;
-use std::pin::Pin;
+use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
-use std::sync::Arc;
 
 /// Trait for extracting data from request parts (headers, path, query)
 ///
@@ -39,6 +40,7 @@ impl<T: FromRequestParts> FromRequest for T {
 /// JSON body extractor
 ///
 /// Parses the request body as JSON and deserializes into type `T`.
+/// Also works as a response type when T: Serialize.
 ///
 /// # Example
 ///
@@ -53,7 +55,7 @@ impl<T: FromRequestParts> FromRequest for T {
 ///     // body is already deserialized
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Json<T>(pub T);
 
 impl<T: DeserializeOwned + Send> FromRequest for Json<T> {
@@ -72,6 +74,33 @@ impl<T> Deref for Json<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<T> DerefMut for Json<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T> From<T> for Json<T> {
+    fn from(value: T) -> Self {
+        Json(value)
+    }
+}
+
+// IntoResponse for Json - allows using Json<T> as a return type
+impl<T: Serialize> IntoResponse for Json<T> {
+    fn into_response(self) -> crate::response::Response {
+        match serde_json::to_vec(&self.0) {
+            Ok(body) => http::Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Full::new(Bytes::from(body)))
+                .unwrap(),
+            Err(err) => ApiError::internal(format!("Failed to serialize response: {}", err))
+                .into_response(),
+        }
     }
 }
 
@@ -259,4 +288,3 @@ impl_from_request_parts_for_primitives!(
 );
 
 // Re-export Json from response for extraction (they share the type)
-pub use crate::response::Json as JsonResponse;

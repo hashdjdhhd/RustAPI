@@ -56,10 +56,10 @@ pub mod prelude {
         Router,
         get, post, put, patch, delete,
         // Extractors
-        Json, Query, Path, State,
+        Json, Query, Path, State, Body,
         // Response types
         IntoResponse, Response,
-        Created, NoContent,
+        Created, NoContent, Html, Redirect,
         // Error handling
         ApiError, Result,
         // Request context
