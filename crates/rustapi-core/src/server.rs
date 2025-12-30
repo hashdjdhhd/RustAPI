@@ -1,6 +1,7 @@
 //! HTTP server implementation
 
 use crate::error::ApiError;
+use crate::middleware::{BoxedNext, LayerStack};
 use crate::request::Request;
 use crate::response::IntoResponse;
 use crate::router::{RouteMatch, Router};
@@ -20,12 +21,14 @@ use tracing::{error, info};
 /// Internal server struct
 pub(crate) struct Server {
     router: Arc<Router>,
+    layers: Arc<LayerStack>,
 }
 
 impl Server {
-    pub fn new(router: Router) -> Self {
+    pub fn new(router: Router, layers: LayerStack) -> Self {
         Self {
             router: Arc::new(router),
+            layers: Arc::new(layers),
         }
     }
 
@@ -40,12 +43,14 @@ impl Server {
             let (stream, remote_addr) = listener.accept().await?;
             let io = TokioIo::new(stream);
             let router = self.router.clone();
+            let layers = self.layers.clone();
 
             tokio::spawn(async move {
                 let service = service_fn(move |req: hyper::Request<Incoming>| {
                     let router = router.clone();
+                    let layers = layers.clone();
                     async move {
-                        let response = handle_request(router, req, remote_addr).await;
+                        let response = handle_request(router, layers, req, remote_addr).await;
                         Ok::<_, Infallible>(response)
                     }
                 });
@@ -64,6 +69,7 @@ impl Server {
 /// Handle a single HTTP request
 async fn handle_request(
     router: Arc<Router>,
+    layers: Arc<LayerStack>,
     req: hyper::Request<Incoming>,
     _remote_addr: SocketAddr,
 ) -> hyper::Response<Full<Bytes>> {
@@ -71,35 +77,26 @@ async fn handle_request(
     let path = req.uri().path().to_string();
     let start = std::time::Instant::now();
 
-    // Match the route
-    let response = match router.match_route(&path, &method) {
-        RouteMatch::Found { handler, params } => {
-            // Convert hyper request to our Request type
-            let (parts, body) = req.into_parts();
-            
-            // Collect body bytes
-            let body_bytes = match body.collect().await {
-                Ok(collected) => collected.to_bytes(),
-                Err(e) => {
-                    return ApiError::bad_request(format!("Failed to read body: {}", e))
-                        .into_response();
-                }
-            };
+    // Convert hyper request to our Request type first
+    let (parts, body) = req.into_parts();
 
-            // Build Request
-            let request = Request::new(
-                parts,
-                body_bytes,
-                router.state_ref(),
-                params,
-            );
-
-            // Call handler
-            handler(request).await
+    // Collect body bytes
+    let body_bytes = match body.collect().await {
+        Ok(collected) => collected.to_bytes(),
+        Err(e) => {
+            return ApiError::bad_request(format!("Failed to read body: {}", e))
+                .into_response();
         }
+    };
+
+    // Match the route to get path params
+    let (handler, params) = match router.match_route(&path, &method) {
+        RouteMatch::Found { handler, params } => (handler.clone(), params),
         RouteMatch::NotFound => {
-            ApiError::not_found(format!("No route found for {} {}", method, path))
-                .into_response()
+            let response = ApiError::not_found(format!("No route found for {} {}", method, path))
+                .into_response();
+            log_request(&method, &path, response.status(), start);
+            return response;
         }
         RouteMatch::MethodNotAllowed { allowed } => {
             let allowed_str: Vec<&str> = allowed.iter().map(|m| m.as_str()).collect();
@@ -109,19 +106,47 @@ async fn handle_request(
                 format!("Method {} not allowed for {}", method, path),
             )
             .into_response();
-            
+
             response.headers_mut().insert(
                 header::ALLOW,
                 allowed_str.join(", ").parse().unwrap(),
             );
-            response
+            log_request(&method, &path, response.status(), start);
+            return response;
         }
     };
 
+    // Build Request
+    let request = Request::new(
+        parts,
+        body_bytes,
+        router.state_ref(),
+        params,
+    );
+
+    // Create the final handler as a BoxedNext
+    let final_handler: BoxedNext = Arc::new(move |req: Request| {
+        let handler = handler.clone();
+        Box::pin(async move { handler(req).await })
+            as std::pin::Pin<Box<dyn std::future::Future<Output = crate::response::Response> + Send + 'static>>
+    });
+
+    // Execute through middleware stack
+    let response = layers.execute(request, final_handler).await;
+
+    log_request(&method, &path, response.status(), start);
+    response
+}
+
+/// Log request completion
+fn log_request(
+    method: &http::Method,
+    path: &str,
+    status: StatusCode,
+    start: std::time::Instant,
+) {
     let elapsed = start.elapsed();
-    let status = response.status();
-    
-    // Log request
+
     if status.is_success() {
         info!(
             method = %method,
@@ -139,6 +164,4 @@ async fn handle_request(
             "Request failed"
         );
     }
-
-    response
 }

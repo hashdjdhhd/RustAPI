@@ -346,6 +346,295 @@ impl<T: FromRequestParts> FromRequestParts for Option<T> {
     }
 }
 
+/// Headers extractor
+///
+/// Provides access to all request headers as a typed map.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_core::extract::Headers;
+///
+/// async fn handler(headers: Headers) -> impl IntoResponse {
+///     if let Some(content_type) = headers.get("content-type") {
+///         format!("Content-Type: {:?}", content_type)
+///     } else {
+///         "No Content-Type header".to_string()
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct Headers(pub http::HeaderMap);
+
+impl Headers {
+    /// Get a header value by name
+    pub fn get(&self, name: &str) -> Option<&http::HeaderValue> {
+        self.0.get(name)
+    }
+
+    /// Check if a header exists
+    pub fn contains(&self, name: &str) -> bool {
+        self.0.contains_key(name)
+    }
+
+    /// Get the number of headers
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Check if headers are empty
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Iterate over all headers
+    pub fn iter(&self) -> http::header::Iter<'_, http::HeaderValue> {
+        self.0.iter()
+    }
+}
+
+impl FromRequestParts for Headers {
+    fn from_request_parts(req: &Request) -> Result<Self> {
+        Ok(Headers(req.headers().clone()))
+    }
+}
+
+impl Deref for Headers {
+    type Target = http::HeaderMap;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Single header value extractor
+///
+/// Extracts a specific header value by name. Returns an error if the header is missing.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_core::extract::HeaderValue;
+///
+/// async fn handler(
+///     auth: HeaderValue<{ "authorization" }>,
+/// ) -> impl IntoResponse {
+///     format!("Auth header: {}", auth.0)
+/// }
+/// ```
+///
+/// Note: Due to Rust's const generics limitations, you may need to use the
+/// `HeaderValueOf` type alias or extract headers manually using the `Headers` extractor.
+#[derive(Debug, Clone)]
+pub struct HeaderValue(pub String, pub &'static str);
+
+impl HeaderValue {
+    /// Create a new HeaderValue extractor for a specific header name
+    pub fn new(name: &'static str, value: String) -> Self {
+        Self(value, name)
+    }
+
+    /// Get the header value
+    pub fn value(&self) -> &str {
+        &self.0
+    }
+
+    /// Get the header name
+    pub fn name(&self) -> &'static str {
+        self.1
+    }
+
+    /// Extract a specific header from a request
+    pub fn extract(req: &Request, name: &'static str) -> Result<Self> {
+        req.headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| HeaderValue(s.to_string(), name))
+            .ok_or_else(|| ApiError::bad_request(format!("Missing required header: {}", name)))
+    }
+}
+
+impl Deref for HeaderValue {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Extension extractor
+///
+/// Retrieves typed data from request extensions that was inserted by middleware.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_core::extract::Extension;
+///
+/// // Middleware inserts user data
+/// #[derive(Clone)]
+/// struct CurrentUser { id: i64 }
+///
+/// async fn handler(Extension(user): Extension<CurrentUser>) -> impl IntoResponse {
+///     format!("User ID: {}", user.id)
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct Extension<T>(pub T);
+
+impl<T: Clone + Send + Sync + 'static> FromRequestParts for Extension<T> {
+    fn from_request_parts(req: &Request) -> Result<Self> {
+        req.extensions()
+            .get::<T>()
+            .cloned()
+            .map(Extension)
+            .ok_or_else(|| {
+                ApiError::internal(format!(
+                    "Extension of type `{}` not found. Did middleware insert it?",
+                    std::any::type_name::<T>()
+                ))
+            })
+    }
+}
+
+impl<T> Deref for Extension<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for Extension<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// Client IP address extractor
+///
+/// Extracts the client IP address from the request. When `trust_proxy` is enabled,
+/// it will use the `X-Forwarded-For` header if present.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_core::extract::ClientIp;
+///
+/// async fn handler(ClientIp(ip): ClientIp) -> impl IntoResponse {
+///     format!("Your IP: {}", ip)
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct ClientIp(pub std::net::IpAddr);
+
+impl ClientIp {
+    /// Extract client IP, optionally trusting X-Forwarded-For header
+    pub fn extract_with_config(req: &Request, trust_proxy: bool) -> Result<Self> {
+        if trust_proxy {
+            // Try X-Forwarded-For header first
+            if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+                if let Ok(forwarded_str) = forwarded.to_str() {
+                    // X-Forwarded-For can contain multiple IPs, take the first one
+                    if let Some(first_ip) = forwarded_str.split(',').next() {
+                        if let Ok(ip) = first_ip.trim().parse() {
+                            return Ok(ClientIp(ip));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fall back to socket address from extensions (if set by server)
+        if let Some(addr) = req.extensions().get::<std::net::SocketAddr>() {
+            return Ok(ClientIp(addr.ip()));
+        }
+
+        // Default to localhost if no IP information available
+        Ok(ClientIp(std::net::IpAddr::V4(std::net::Ipv4Addr::new(
+            127, 0, 0, 1,
+        ))))
+    }
+}
+
+impl FromRequestParts for ClientIp {
+    fn from_request_parts(req: &Request) -> Result<Self> {
+        // By default, trust proxy headers
+        Self::extract_with_config(req, true)
+    }
+}
+
+/// Cookies extractor
+///
+/// Parses and provides access to request cookies from the Cookie header.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_core::extract::Cookies;
+///
+/// async fn handler(cookies: Cookies) -> impl IntoResponse {
+///     if let Some(session) = cookies.get("session_id") {
+///         format!("Session: {}", session.value())
+///     } else {
+///         "No session cookie".to_string()
+///     }
+/// }
+/// ```
+#[cfg(feature = "cookies")]
+#[derive(Debug, Clone)]
+pub struct Cookies(pub cookie::CookieJar);
+
+#[cfg(feature = "cookies")]
+impl Cookies {
+    /// Get a cookie by name
+    pub fn get(&self, name: &str) -> Option<&cookie::Cookie<'static>> {
+        self.0.get(name)
+    }
+
+    /// Iterate over all cookies
+    pub fn iter(&self) -> impl Iterator<Item = &cookie::Cookie<'static>> {
+        self.0.iter()
+    }
+
+    /// Check if a cookie exists
+    pub fn contains(&self, name: &str) -> bool {
+        self.0.get(name).is_some()
+    }
+}
+
+#[cfg(feature = "cookies")]
+impl FromRequestParts for Cookies {
+    fn from_request_parts(req: &Request) -> Result<Self> {
+        let mut jar = cookie::CookieJar::new();
+
+        if let Some(cookie_header) = req.headers().get(header::COOKIE) {
+            if let Ok(cookie_str) = cookie_header.to_str() {
+                // Parse each cookie from the header
+                for cookie_part in cookie_str.split(';') {
+                    let trimmed = cookie_part.trim();
+                    if !trimmed.is_empty() {
+                        if let Ok(cookie) = cookie::Cookie::parse(trimmed.to_string()) {
+                            jar.add_original(cookie.into_owned());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(Cookies(jar))
+    }
+}
+
+#[cfg(feature = "cookies")]
+impl Deref for Cookies {
+    type Target = cookie::CookieJar;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 // Implement FromRequestParts for common primitive types (path params)
 macro_rules! impl_from_request_parts_for_primitives {
     ($($ty:ty),*) => {
@@ -540,5 +829,537 @@ impl<T: for<'a> Schema<'a>> ResponseModifier for Json<T> {
                 ..Default::default()
             },
         );
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+    use http::{Extensions, Method};
+    use proptest::prelude::*;
+    use proptest::test_runner::TestCaseError;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    /// Create a test request with the given method, path, and headers
+    fn create_test_request_with_headers(
+        method: Method,
+        path: &str,
+        headers: Vec<(&str, &str)>,
+    ) -> Request {
+        let uri: http::Uri = path.parse().unwrap();
+        let mut builder = http::Request::builder().method(method).uri(uri);
+
+        for (name, value) in headers {
+            builder = builder.header(name, value);
+        }
+
+        let req = builder.body(()).unwrap();
+        let (parts, _) = req.into_parts();
+
+        Request::new(
+            parts,
+            Bytes::new(),
+            Arc::new(Extensions::new()),
+            HashMap::new(),
+        )
+    }
+
+    /// Create a test request with extensions
+    fn create_test_request_with_extensions<T: Clone + Send + Sync + 'static>(
+        method: Method,
+        path: &str,
+        extension: T,
+    ) -> Request {
+        let uri: http::Uri = path.parse().unwrap();
+        let builder = http::Request::builder().method(method).uri(uri);
+
+        let req = builder.body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        parts.extensions.insert(extension);
+
+        Request::new(
+            parts,
+            Bytes::new(),
+            Arc::new(Extensions::new()),
+            HashMap::new(),
+        )
+    }
+
+    // **Feature: phase3-batteries-included, Property 14: Headers extractor completeness**
+    //
+    // For any request with headers H, the `Headers` extractor SHALL return a map
+    // containing all key-value pairs in H.
+    //
+    // **Validates: Requirements 5.1**
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_headers_extractor_completeness(
+            // Generate random header names and values
+            // Using alphanumeric strings to ensure valid header names/values
+            headers in prop::collection::vec(
+                (
+                    "[a-z][a-z0-9-]{0,20}",  // Valid header name pattern
+                    "[a-zA-Z0-9 ]{1,50}"     // Valid header value pattern
+                ),
+                0..10
+            )
+        ) {
+            let result: Result<(), TestCaseError> = (|| {
+                // Convert to header tuples
+                let header_tuples: Vec<(&str, &str)> = headers
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                    .collect();
+
+                // Create request with headers
+                let request = create_test_request_with_headers(
+                    Method::GET,
+                    "/test",
+                    header_tuples.clone(),
+                );
+
+                // Extract headers
+                let extracted = Headers::from_request_parts(&request)
+                    .map_err(|e| TestCaseError::fail(format!("Failed to extract headers: {}", e)))?;
+
+                // Verify all original headers are present
+                for (name, value) in &headers {
+                    let header_value = extracted.get(name.as_str())
+                        .ok_or_else(|| TestCaseError::fail(format!("Header '{}' not found", name)))?;
+                    
+                    let extracted_value = header_value.to_str()
+                        .map_err(|e| TestCaseError::fail(format!("Invalid header value: {}", e)))?;
+                    
+                    prop_assert_eq!(
+                        extracted_value,
+                        value.as_str(),
+                        "Header '{}' value mismatch",
+                        name
+                    );
+                }
+
+                Ok(())
+            })();
+            result?;
+        }
+    }
+
+    // **Feature: phase3-batteries-included, Property 15: HeaderValue extractor correctness**
+    //
+    // For any request with header "X" having value V, `HeaderValue::extract(req, "X")` SHALL return V;
+    // for requests without header "X", it SHALL return an error.
+    //
+    // **Validates: Requirements 5.2**
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_header_value_extractor_correctness(
+            header_name in "[a-z][a-z0-9-]{0,20}",
+            header_value in "[a-zA-Z0-9 ]{1,50}",
+            has_header in prop::bool::ANY,
+        ) {
+            let result: Result<(), TestCaseError> = (|| {
+                let headers = if has_header {
+                    vec![(header_name.as_str(), header_value.as_str())]
+                } else {
+                    vec![]
+                };
+
+                let request = create_test_request_with_headers(Method::GET, "/test", headers);
+
+                // We need to use a static string for the header name in the extractor
+                // So we'll test with a known header name
+                let test_header = "x-test-header";
+                let request_with_known_header = if has_header {
+                    create_test_request_with_headers(
+                        Method::GET,
+                        "/test",
+                        vec![(test_header, header_value.as_str())],
+                    )
+                } else {
+                    create_test_request_with_headers(Method::GET, "/test", vec![])
+                };
+
+                let result = HeaderValue::extract(&request_with_known_header, test_header);
+
+                if has_header {
+                    let extracted = result
+                        .map_err(|e| TestCaseError::fail(format!("Expected header to be found: {}", e)))?;
+                    prop_assert_eq!(
+                        extracted.value(),
+                        header_value.as_str(),
+                        "Header value mismatch"
+                    );
+                } else {
+                    prop_assert!(
+                        result.is_err(),
+                        "Expected error when header is missing"
+                    );
+                }
+
+                Ok(())
+            })();
+            result?;
+        }
+    }
+
+    // **Feature: phase3-batteries-included, Property 17: ClientIp extractor with forwarding**
+    //
+    // For any request with socket IP S and X-Forwarded-For header F, when forwarding is enabled,
+    // `ClientIp` SHALL return the first IP in F; when disabled, it SHALL return S.
+    //
+    // **Validates: Requirements 5.4**
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_client_ip_extractor_with_forwarding(
+            // Generate valid IPv4 addresses
+            forwarded_ip in (0u8..=255, 0u8..=255, 0u8..=255, 0u8..=255)
+                .prop_map(|(a, b, c, d)| format!("{}.{}.{}.{}", a, b, c, d)),
+            socket_ip in (0u8..=255, 0u8..=255, 0u8..=255, 0u8..=255)
+                .prop_map(|(a, b, c, d)| std::net::IpAddr::V4(std::net::Ipv4Addr::new(a, b, c, d))),
+            has_forwarded_header in prop::bool::ANY,
+            trust_proxy in prop::bool::ANY,
+        ) {
+            let result: Result<(), TestCaseError> = (|| {
+                let headers = if has_forwarded_header {
+                    vec![("x-forwarded-for", forwarded_ip.as_str())]
+                } else {
+                    vec![]
+                };
+
+                // Create request with headers
+                let uri: http::Uri = "/test".parse().unwrap();
+                let mut builder = http::Request::builder().method(Method::GET).uri(uri);
+                for (name, value) in &headers {
+                    builder = builder.header(*name, *value);
+                }
+                let req = builder.body(()).unwrap();
+                let (mut parts, _) = req.into_parts();
+                
+                // Add socket address to extensions
+                let socket_addr = std::net::SocketAddr::new(socket_ip, 8080);
+                parts.extensions.insert(socket_addr);
+
+                let request = Request::new(
+                    parts,
+                    Bytes::new(),
+                    Arc::new(Extensions::new()),
+                    HashMap::new(),
+                );
+
+                let extracted = ClientIp::extract_with_config(&request, trust_proxy)
+                    .map_err(|e| TestCaseError::fail(format!("Failed to extract ClientIp: {}", e)))?;
+
+                if trust_proxy && has_forwarded_header {
+                    // Should use X-Forwarded-For
+                    let expected_ip: std::net::IpAddr = forwarded_ip.parse()
+                        .map_err(|e| TestCaseError::fail(format!("Invalid IP: {}", e)))?;
+                    prop_assert_eq!(
+                        extracted.0,
+                        expected_ip,
+                        "Should use X-Forwarded-For IP when trust_proxy is enabled"
+                    );
+                } else {
+                    // Should use socket IP
+                    prop_assert_eq!(
+                        extracted.0,
+                        socket_ip,
+                        "Should use socket IP when trust_proxy is disabled or no X-Forwarded-For"
+                    );
+                }
+
+                Ok(())
+            })();
+            result?;
+        }
+    }
+
+    // **Feature: phase3-batteries-included, Property 18: Extension extractor retrieval**
+    //
+    // For any type T and value V inserted into request extensions by middleware,
+    // `Extension<T>` SHALL return V.
+    //
+    // **Validates: Requirements 5.5**
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_extension_extractor_retrieval(
+            value in any::<i64>(),
+            has_extension in prop::bool::ANY,
+        ) {
+            let result: Result<(), TestCaseError> = (|| {
+                // Create a simple wrapper type for testing
+                #[derive(Clone, Debug, PartialEq)]
+                struct TestExtension(i64);
+
+                let uri: http::Uri = "/test".parse().unwrap();
+                let builder = http::Request::builder().method(Method::GET).uri(uri);
+                let req = builder.body(()).unwrap();
+                let (mut parts, _) = req.into_parts();
+
+                if has_extension {
+                    parts.extensions.insert(TestExtension(value));
+                }
+
+                let request = Request::new(
+                    parts,
+                    Bytes::new(),
+                    Arc::new(Extensions::new()),
+                    HashMap::new(),
+                );
+
+                let result = Extension::<TestExtension>::from_request_parts(&request);
+
+                if has_extension {
+                    let extracted = result
+                        .map_err(|e| TestCaseError::fail(format!("Expected extension to be found: {}", e)))?;
+                    prop_assert_eq!(
+                        extracted.0,
+                        TestExtension(value),
+                        "Extension value mismatch"
+                    );
+                } else {
+                    prop_assert!(
+                        result.is_err(),
+                        "Expected error when extension is missing"
+                    );
+                }
+
+                Ok(())
+            })();
+            result?;
+        }
+    }
+
+    // Unit tests for basic functionality
+
+    #[test]
+    fn test_headers_extractor_basic() {
+        let request = create_test_request_with_headers(
+            Method::GET,
+            "/test",
+            vec![("content-type", "application/json"), ("accept", "text/html")],
+        );
+
+        let headers = Headers::from_request_parts(&request).unwrap();
+        
+        assert!(headers.contains("content-type"));
+        assert!(headers.contains("accept"));
+        assert!(!headers.contains("x-custom"));
+        assert_eq!(headers.len(), 2);
+    }
+
+    #[test]
+    fn test_header_value_extractor_present() {
+        let request = create_test_request_with_headers(
+            Method::GET,
+            "/test",
+            vec![("authorization", "Bearer token123")],
+        );
+
+        let result = HeaderValue::extract(&request, "authorization");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().value(), "Bearer token123");
+    }
+
+    #[test]
+    fn test_header_value_extractor_missing() {
+        let request = create_test_request_with_headers(Method::GET, "/test", vec![]);
+
+        let result = HeaderValue::extract(&request, "authorization");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_client_ip_from_forwarded_header() {
+        let request = create_test_request_with_headers(
+            Method::GET,
+            "/test",
+            vec![("x-forwarded-for", "192.168.1.100, 10.0.0.1")],
+        );
+
+        let ip = ClientIp::extract_with_config(&request, true).unwrap();
+        assert_eq!(ip.0, "192.168.1.100".parse::<std::net::IpAddr>().unwrap());
+    }
+
+    #[test]
+    fn test_client_ip_ignores_forwarded_when_not_trusted() {
+        let uri: http::Uri = "/test".parse().unwrap();
+        let builder = http::Request::builder()
+            .method(Method::GET)
+            .uri(uri)
+            .header("x-forwarded-for", "192.168.1.100");
+        let req = builder.body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        
+        let socket_addr = std::net::SocketAddr::new(
+            std::net::IpAddr::V4(std::net::Ipv4Addr::new(10, 0, 0, 1)),
+            8080,
+        );
+        parts.extensions.insert(socket_addr);
+
+        let request = Request::new(
+            parts,
+            Bytes::new(),
+            Arc::new(Extensions::new()),
+            HashMap::new(),
+        );
+
+        let ip = ClientIp::extract_with_config(&request, false).unwrap();
+        assert_eq!(ip.0, "10.0.0.1".parse::<std::net::IpAddr>().unwrap());
+    }
+
+    #[test]
+    fn test_extension_extractor_present() {
+        #[derive(Clone, Debug, PartialEq)]
+        struct MyData(String);
+
+        let request = create_test_request_with_extensions(
+            Method::GET,
+            "/test",
+            MyData("hello".to_string()),
+        );
+
+        let result = Extension::<MyData>::from_request_parts(&request);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().0, MyData("hello".to_string()));
+    }
+
+    #[test]
+    fn test_extension_extractor_missing() {
+        #[derive(Clone, Debug)]
+        struct MyData(String);
+
+        let request = create_test_request_with_headers(Method::GET, "/test", vec![]);
+
+        let result = Extension::<MyData>::from_request_parts(&request);
+        assert!(result.is_err());
+    }
+
+    // Cookies tests (feature-gated)
+    #[cfg(feature = "cookies")]
+    mod cookies_tests {
+        use super::*;
+
+        // **Feature: phase3-batteries-included, Property 16: Cookies extractor parsing**
+        //
+        // For any request with Cookie header containing cookies C, the `Cookies` extractor
+        // SHALL return a CookieJar containing exactly the cookies in C.
+        //
+        // **Validates: Requirements 5.3**
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(100))]
+
+            #[test]
+            fn prop_cookies_extractor_parsing(
+                // Generate random cookie names and values
+                // Using alphanumeric strings to ensure valid cookie names/values
+                cookies in prop::collection::vec(
+                    (
+                        "[a-zA-Z][a-zA-Z0-9_]{0,15}",  // Valid cookie name pattern
+                        "[a-zA-Z0-9]{1,30}"            // Valid cookie value pattern (no special chars)
+                    ),
+                    0..5
+                )
+            ) {
+                let result: Result<(), TestCaseError> = (|| {
+                    // Build cookie header string
+                    let cookie_header = cookies
+                        .iter()
+                        .map(|(name, value)| format!("{}={}", name, value))
+                        .collect::<Vec<_>>()
+                        .join("; ");
+
+                    let headers = if !cookies.is_empty() {
+                        vec![("cookie", cookie_header.as_str())]
+                    } else {
+                        vec![]
+                    };
+
+                    let request = create_test_request_with_headers(Method::GET, "/test", headers);
+
+                    // Extract cookies
+                    let extracted = Cookies::from_request_parts(&request)
+                        .map_err(|e| TestCaseError::fail(format!("Failed to extract cookies: {}", e)))?;
+
+                    // Verify all original cookies are present
+                    for (name, value) in &cookies {
+                        let cookie = extracted.get(name.as_str())
+                            .ok_or_else(|| TestCaseError::fail(format!("Cookie '{}' not found", name)))?;
+                        
+                        prop_assert_eq!(
+                            cookie.value(),
+                            value.as_str(),
+                            "Cookie '{}' value mismatch",
+                            name
+                        );
+                    }
+
+                    // Count cookies in jar
+                    let extracted_count = extracted.iter().count();
+                    
+                    // Note: Due to potential duplicate cookie names, we check that we have
+                    // at least as many unique cookies as we put in
+                    let unique_names: std::collections::HashSet<_> = cookies.iter().map(|(n, _)| n).collect();
+                    prop_assert!(
+                        extracted_count >= unique_names.len(),
+                        "Expected at least {} cookies, got {}",
+                        unique_names.len(),
+                        extracted_count
+                    );
+
+                    Ok(())
+                })();
+                result?;
+            }
+        }
+
+        #[test]
+        fn test_cookies_extractor_basic() {
+            let request = create_test_request_with_headers(
+                Method::GET,
+                "/test",
+                vec![("cookie", "session=abc123; user=john")],
+            );
+
+            let cookies = Cookies::from_request_parts(&request).unwrap();
+            
+            assert!(cookies.contains("session"));
+            assert!(cookies.contains("user"));
+            assert!(!cookies.contains("other"));
+            
+            assert_eq!(cookies.get("session").unwrap().value(), "abc123");
+            assert_eq!(cookies.get("user").unwrap().value(), "john");
+        }
+
+        #[test]
+        fn test_cookies_extractor_empty() {
+            let request = create_test_request_with_headers(Method::GET, "/test", vec![]);
+
+            let cookies = Cookies::from_request_parts(&request).unwrap();
+            assert_eq!(cookies.iter().count(), 0);
+        }
+
+        #[test]
+        fn test_cookies_extractor_single() {
+            let request = create_test_request_with_headers(
+                Method::GET,
+                "/test",
+                vec![("cookie", "token=xyz789")],
+            );
+
+            let cookies = Cookies::from_request_parts(&request).unwrap();
+            assert_eq!(cookies.iter().count(), 1);
+            assert_eq!(cookies.get("token").unwrap().value(), "xyz789");
+        }
     }
 }

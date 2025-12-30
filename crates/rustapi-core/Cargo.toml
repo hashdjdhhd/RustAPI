@@ -41,14 +41,24 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 inventory = { workspace = true }
 
+# Cookies (optional)
+cookie = { version = "0.18", optional = true }
+
 # Validation
 rustapi-validate = { workspace = true }
+
+# SQLx (optional)
+sqlx = { version = "0.8", optional = true, default-features = false }
 
 # OpenAPI
 rustapi-openapi = { workspace = true, default-features = false }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+proptest = "1.4"
 [features]
 default = ["swagger-ui"]
 swagger-ui = ["rustapi-openapi/swagger-ui"]
+test-utils = []
+cookies = ["dep:cookie"]
+sqlx = ["dep:sqlx"]

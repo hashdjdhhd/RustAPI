@@ -257,7 +257,7 @@ where
 }
 
 // Type-erased handler for storage in router
-pub(crate) type BoxedHandler = Box<
+pub(crate) type BoxedHandler = std::sync::Arc<
     dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync
 >;
 
@@ -267,7 +267,7 @@ where
     H: Handler<T>,
     T: 'static,
 {
-    Box::new(move |req| {
+    std::sync::Arc::new(move |req| {
         let handler = handler.clone();
         Box::pin(async move {
             handler.call(req).await

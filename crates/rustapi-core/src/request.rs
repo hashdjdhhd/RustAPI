@@ -90,6 +90,20 @@ impl Request {
     pub fn state(&self) -> &Arc<Extensions> {
         &self.state
     }
+
+    /// Create a test request from an http::Request
+    /// 
+    /// This is useful for testing middleware and extractors.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn from_http_request<B>(req: http::Request<B>, body: Bytes) -> Self {
+        let (parts, _) = req.into_parts();
+        Self {
+            parts,
+            body: Some(body),
+            state: Arc::new(Extensions::new()),
+            path_params: HashMap::new(),
+        }
+    }
 }
 
 impl std::fmt::Debug for Request {
