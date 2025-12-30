@@ -32,15 +32,19 @@ impl RustApi {
     pub fn new() -> Self {
         // Initialize tracing if not already done
         let _ = tracing_subscriber::registry()
-            .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                EnvFilter::new("info,rustapi=debug")
-            }))
+            .with(
+                EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| EnvFilter::new("info,rustapi=debug")),
+            )
             .with(tracing_subscriber::fmt::layer())
             .try_init();
 
         Self {
             router: Router::new(),
-            openapi_spec: rustapi_openapi::OpenApiSpec::new("RustAPI Application", "1.0.0"),
+            openapi_spec: rustapi_openapi::OpenApiSpec::new("RustAPI Application", "1.0.0")
+                .register::<rustapi_openapi::ErrorSchema>()
+                .register::<rustapi_openapi::ValidationErrorSchema>()
+                .register::<rustapi_openapi::FieldErrorSchema>(),
         }
     }
 
@@ -59,17 +63,17 @@ impl RustApi {
     /// RustApi::new()
     ///     .state(AppState::new())
     /// ```
-    pub fn state<S>(self, state: S) -> Self
+    pub fn state<S>(self, _state: S) -> Self
     where
         S: Clone + Send + Sync + 'static,
     {
-        // For now, state is handled by the router/handlers directly capturing it 
-        // or through a middleware. The current router (matchit) implementation 
+        // For now, state is handled by the router/handlers directly capturing it
+        // or through a middleware. The current router (matchit) implementation
         // doesn't support state injection directly in the same way axum does.
         // This is a placeholder for future state management.
         self
     }
-    
+
     /// Register an OpenAPI schema
     ///
     /// # Example
@@ -85,7 +89,7 @@ impl RustApi {
         self.openapi_spec = self.openapi_spec.register::<T>();
         self
     }
-    
+
     /// Configure OpenAPI info (title, version, description)
     pub fn openapi_info(mut self, title: &str, version: &str, description: Option<&str>) -> Self {
         self.openapi_spec = rustapi_openapi::OpenApiSpec::new(title, version);
@@ -151,39 +155,46 @@ impl RustApi {
         };
 
         // Register operation in OpenAPI spec
-        self.openapi_spec = self.openapi_spec.path(route.path, route.method, route.operation);
-        
+        self.openapi_spec = self
+            .openapi_spec
+            .path(route.path, route.method, route.operation);
+
         self.route_with_method(route.path, method_enum, route.handler)
     }
 
     /// Helper to mount a single method handler
-    fn route_with_method(mut self, path: &str, method: http::Method, handler: crate::handler::BoxedHandler) -> Self {
+    fn route_with_method(
+        self,
+        path: &str,
+        method: http::Method,
+        handler: crate::handler::BoxedHandler,
+    ) -> Self {
         use crate::router::MethodRouter;
         // use http::Method; // Removed
-        
+
         // This is simplified. In a real implementation we'd merge with existing router at this path
-        // For now we assume one handler per path or we simply allow overwriting for this MVP step 
+        // For now we assume one handler per path or we simply allow overwriting for this MVP step
         // (matchit router doesn't allow easy merging/updating existing entries without rebuilding)
-        // 
+        //
         // TOOD: Enhance Router to support method merging
-        
+
         let path = if !path.starts_with('/') {
             format!("/{}", path)
         } else {
             path.to_string()
         };
-        
-        // Check if we already have this path? 
+
+        // Check if we already have this path?
         // For MVP, valid assumption: user calls .route() or .mount() once per path-method-combo
         // But we need to handle multiple methods on same path.
-        // Our Router wrapper currently just inserts. 
-        
+        // Our Router wrapper currently just inserts.
+
         // Since we can't easily query matchit, we'll just insert.
         // Limitations: strictly sequential mounting for now.
-        
+
         let mut handlers = std::collections::HashMap::new();
         handlers.insert(method, handler);
-        
+
         let method_router = MethodRouter::from_boxed(handlers);
         self.route(&path, method_router)
     }
@@ -223,7 +234,7 @@ impl RustApi {
         let title = self.openapi_spec.info.title.clone();
         let version = self.openapi_spec.info.version.clone();
         let description = self.openapi_spec.info.description.clone();
-        
+
         self.docs_with_info(path, &title, &version, description.as_deref())
     }
 
@@ -249,14 +260,15 @@ impl RustApi {
         if let Some(desc) = description {
             self.openapi_spec.info.description = Some(desc.to_string());
         }
-        
+
         let path = path.trim_end_matches('/');
         let openapi_path = format!("{}/openapi.json", path);
-        
+
         // Clone values for closures
-        let spec_json = serde_json::to_string_pretty(&self.openapi_spec.to_json()).unwrap_or_default();
+        let spec_json =
+            serde_json::to_string_pretty(&self.openapi_spec.to_json()).unwrap_or_default();
         let openapi_url = openapi_path.clone();
-        
+
         // Add OpenAPI JSON endpoint
         let spec_handler = move || {
             let json = spec_json.clone();
@@ -268,7 +280,7 @@ impl RustApi {
                     .unwrap()
             }
         };
-        
+
         // Add Swagger UI endpoint
         let docs_handler = move || {
             let url = openapi_url.clone();
@@ -277,7 +289,7 @@ impl RustApi {
                 html
             }
         };
-        
+
         self.route(&openapi_path, get(spec_handler))
             .route(path, get(docs_handler))
     }

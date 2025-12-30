@@ -280,7 +280,7 @@ impl ResponseModifier for String {
         
         let response = ResponseSpec {
             description: "Successful response".to_string(),
-            content,
+            content: Some(content),
             ..Default::default()
         };
         op.responses.insert("200".to_string(), response);
@@ -297,7 +297,7 @@ impl ResponseModifier for &'static str {
         
         let response = ResponseSpec {
             description: "Successful response".to_string(),
-            content,
+            content: Some(content),
             ..Default::default()
         };
         op.responses.insert("200".to_string(), response);

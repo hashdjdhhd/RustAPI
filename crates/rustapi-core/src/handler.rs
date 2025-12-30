@@ -311,6 +311,26 @@ impl Route {
             operation,
         }
     }
+    /// Set the operation summary
+    pub fn summary(mut self, summary: impl Into<String>) -> Self {
+        self.operation = self.operation.summary(summary);
+        self
+    }
+
+    /// Set the operation description
+    pub fn description(mut self, description: impl Into<String>) -> Self {
+        self.operation = self.operation.description(description);
+        self
+    }
+
+    /// Add a tag to the operation
+    pub fn tag(mut self, tag: impl Into<String>) -> Self {
+        let tag = tag.into();
+        let mut tags = self.operation.tags.take().unwrap_or_default();
+        tags.push(tag);
+        self.operation.tags = Some(tags);
+        self
+    }
 }
 
 /// Helper macro to create a Route from a handler with RouteHandler trait

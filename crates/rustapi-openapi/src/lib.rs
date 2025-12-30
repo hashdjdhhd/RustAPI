@@ -40,10 +40,12 @@ pub use schemas::{ErrorSchema, ValidationErrorSchema, FieldErrorSchema};
 
 // Re-export utoipa's ToSchema derive macro as Schema
 pub use utoipa::ToSchema as Schema;
+// Re-export utoipa's IntoParams derive macro
+pub use utoipa::IntoParams;
 
 // Re-export utoipa types for advanced usage
 pub mod utoipa_types {
-    pub use utoipa::{ToSchema, OpenApi, Modify, openapi};
+    pub use utoipa::{ToSchema, IntoParams, OpenApi, Modify, openapi};
 }
 
 use bytes::Bytes;

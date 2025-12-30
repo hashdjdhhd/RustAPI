@@ -77,7 +77,7 @@ pub mod prelude {
     pub use validator::Validate;
     
     // Re-export OpenAPI schema derive
-    pub use rustapi_openapi::Schema;
+    pub use rustapi_openapi::{Schema, IntoParams};
 
     // Re-export commonly used external types
     pub use serde::{Deserialize, Serialize};

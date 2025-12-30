@@ -124,7 +124,7 @@ impl ResponseModifier for ApiError {
                 map.insert("application/json".to_string(), MediaType {
                     schema: SchemaRef::Ref { reference: "#/components/schemas/ErrorSchema".to_string() },
                 });
-                map
+                Some(map)
             },
             ..Default::default()
         });
@@ -137,7 +137,7 @@ impl ResponseModifier for ApiError {
                 map.insert("application/json".to_string(), MediaType {
                     schema: SchemaRef::Ref { reference: "#/components/schemas/ErrorSchema".to_string() },
                 });
-                map
+                Some(map)
             },
             ..Default::default()
         });
@@ -173,7 +173,7 @@ impl<T: Serialize> IntoResponse for Created<T> {
     }
 }
 
-impl<T: Schema> ResponseModifier for Created<T> {
+impl<T: for<'a> Schema<'a>> ResponseModifier for Created<T> {
     fn update_response(op: &mut Operation) {
         let (name, _) = T::schema();
         
@@ -188,7 +188,7 @@ impl<T: Schema> ResponseModifier for Created<T> {
                 map.insert("application/json".to_string(), MediaType {
                     schema: schema_ref,
                 });
-                map
+                Some(map)
             },
             ..Default::default()
         });
@@ -251,7 +251,7 @@ impl<T> ResponseModifier for Html<T> {
                 map.insert("text/html".to_string(), MediaType {
                     schema: SchemaRef::Inline(serde_json::json!({ "type": "string" })),
                 });
-                map
+                Some(map)
             },
             ..Default::default()
         });

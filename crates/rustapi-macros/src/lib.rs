@@ -82,6 +82,33 @@ fn generate_route_handler(method: &str, attr: TokenStream, item: TokenStream) ->
         _ => quote!(::rustapi_rs::get_route),
     };
 
+    // Extract metadata from attributes to chain builder methods
+    let mut chained_calls = quote!();
+    
+    for attr in fn_attrs {
+        // Check for tag, summary, description
+        // Use loose matching on the last segment to handle crate renaming or fully qualified paths
+        if let Some(ident) = attr.path().segments.last().map(|s| &s.ident) {
+            let ident_str = ident.to_string();
+            if ident_str == "tag" {
+                if let Ok(lit) = attr.parse_args::<LitStr>() {
+                    let val = lit.value();
+                    chained_calls = quote! { #chained_calls .tag(#val) };
+                }
+            } else if ident_str == "summary" {
+                if let Ok(lit) = attr.parse_args::<LitStr>() {
+                    let val = lit.value();
+                    chained_calls = quote! { #chained_calls .summary(#val) };
+                }
+            } else if ident_str == "description" {
+                if let Ok(lit) = attr.parse_args::<LitStr>() {
+                    let val = lit.value();
+                    chained_calls = quote! { #chained_calls .description(#val) };
+                }
+            }
+        }
+    }
+
     let expanded = quote! {
         // The original handler function
         #(#fn_attrs)*
@@ -91,6 +118,7 @@ fn generate_route_handler(method: &str, attr: TokenStream, item: TokenStream) ->
         #[doc(hidden)]
         #fn_vis fn #route_fn_name() -> ::rustapi_rs::Route {
             #route_helper(#path_value, #fn_name)
+                #chained_calls
         }
     };
 

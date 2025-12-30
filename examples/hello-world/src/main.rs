@@ -10,7 +10,7 @@ use rustapi_rs::prelude::*;
 // Response types
 // ============================================
 
-#[derive(Serialize)]
+#[derive(Serialize, Schema)]
 struct HelloResponse {
     message: String,
 }
@@ -27,9 +27,18 @@ struct UserResponse {
 struct CreateUser {
     #[validate(length(min = 1, max = 100))]
     name: String,
-    
+
     #[validate(email)]
     email: String,
+}
+
+#[derive(Deserialize, IntoParams)]
+#[allow(dead_code)]
+struct SearchParams {
+    /// Search query
+    pub q: String,
+    #[param(minimum = 1)]
+    pub page: Option<usize>,
 }
 
 // ============================================
@@ -81,6 +90,18 @@ async fn create_user(ValidatedJson(body): ValidatedJson<CreateUser>) -> Json<Use
     })
 }
 
+/// Search users
+#[rustapi_rs::get("/search")]
+#[rustapi_rs::tag("Users")]
+#[rustapi_rs::summary("Search users")]
+async fn search_users(Query(_params): Query<SearchParams>) -> Json<UserResponse> {
+    Json(UserResponse {
+        id: 0,
+        name: "Search Result".to_string(),
+        email: "search@example.com".to_string(),
+    })
+}
+
 // ============================================
 // Main entry point
 // ============================================
@@ -95,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("  POST /users     - Create user (validates name & email)");
     println!("  GET  /docs      - Swagger UI");
     println!();
-    
+
     RustApi::new()
         .register_schema::<UserResponse>()
         .register_schema::<CreateUser>()
@@ -103,7 +124,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .mount_route(health_route())
         .mount_route(get_user_route())
         .mount_route(create_user_route())
-        .docs("/docs")  // Enable Swagger UI!
+        .mount_route(search_users_route())
+        .docs("/docs") // Enable Swagger UI!
         .run("127.0.0.1:8080")
         .await
 }
