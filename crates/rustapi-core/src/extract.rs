@@ -60,9 +60,9 @@ pub struct Json<T>(pub T);
 
 impl<T: DeserializeOwned + Send> FromRequest for Json<T> {
     async fn from_request(req: &mut Request) -> Result<Self> {
-        let body = req.take_body().ok_or_else(|| {
-            ApiError::internal("Body already consumed")
-        })?;
+        let body = req
+            .take_body()
+            .ok_or_else(|| ApiError::internal("Body already consumed"))?;
 
         let value: T = serde_json::from_slice(&body)?;
         Ok(Json(value))
@@ -98,9 +98,95 @@ impl<T: Serialize> IntoResponse for Json<T> {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Full::new(Bytes::from(body)))
                 .unwrap(),
-            Err(err) => ApiError::internal(format!("Failed to serialize response: {}", err))
-                .into_response(),
+            Err(err) => {
+                ApiError::internal(format!("Failed to serialize response: {}", err)).into_response()
+            }
         }
+    }
+}
+
+/// Validated JSON body extractor
+///
+/// Parses the request body as JSON, deserializes into type `T`, and validates
+/// using the `Validate` trait. Returns a 422 Unprocessable Entity error with
+/// detailed field-level validation errors if validation fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_rs::prelude::*;
+/// use validator::Validate;
+///
+/// #[derive(Deserialize, Validate)]
+/// struct CreateUser {
+///     #[validate(email)]
+///     email: String,
+///     #[validate(length(min = 8))]
+///     password: String,
+/// }
+///
+/// async fn register(ValidatedJson(body): ValidatedJson<CreateUser>) -> impl IntoResponse {
+///     // body is already validated!
+///     // If email is invalid or password too short, a 422 error is returned automatically
+/// }
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ValidatedJson<T>(pub T);
+
+impl<T> ValidatedJson<T> {
+    /// Create a new ValidatedJson wrapper
+    pub fn new(value: T) -> Self {
+        Self(value)
+    }
+
+    /// Get the inner value
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T: DeserializeOwned + rustapi_validate::Validate + Send> FromRequest for ValidatedJson<T> {
+    async fn from_request(req: &mut Request) -> Result<Self> {
+        // First, deserialize the JSON body
+        let body = req
+            .take_body()
+            .ok_or_else(|| ApiError::internal("Body already consumed"))?;
+
+        let value: T = serde_json::from_slice(&body)?;
+
+        // Then, validate it
+        if let Err(validation_error) = rustapi_validate::Validate::validate(&value) {
+            // Convert validation error to API error with 422 status
+            return Err(validation_error.into());
+        }
+
+        Ok(ValidatedJson(value))
+    }
+}
+
+impl<T> Deref for ValidatedJson<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for ValidatedJson<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T> From<T> for ValidatedJson<T> {
+    fn from(value: T) -> Self {
+        ValidatedJson(value)
+    }
+}
+
+impl<T: Serialize> IntoResponse for ValidatedJson<T> {
+    fn into_response(self) -> crate::response::Response {
+        Json(self.0).into_response()
     }
 }
 
@@ -127,9 +213,8 @@ pub struct Query<T>(pub T);
 impl<T: DeserializeOwned> FromRequestParts for Query<T> {
     fn from_request_parts(req: &Request) -> Result<Self> {
         let query = req.query_string().unwrap_or("");
-        let value: T = serde_urlencoded::from_str(query).map_err(|e| {
-            ApiError::bad_request(format!("Invalid query string: {}", e))
-        })?;
+        let value: T = serde_urlencoded::from_str(query)
+            .map_err(|e| ApiError::bad_request(format!("Invalid query string: {}", e)))?;
         Ok(Query(value))
     }
 }
@@ -172,15 +257,15 @@ where
 {
     fn from_request_parts(req: &Request) -> Result<Self> {
         let params = req.path_params();
-        
+
         // For single param, get the first one
         if let Some((_, value)) = params.iter().next() {
-            let parsed = value.parse::<T>().map_err(|e| {
-                ApiError::bad_request(format!("Invalid path parameter: {}", e))
-            })?;
+            let parsed = value
+                .parse::<T>()
+                .map_err(|e| ApiError::bad_request(format!("Invalid path parameter: {}", e)))?;
             return Ok(Path(parsed));
         }
-        
+
         Err(ApiError::internal("Missing path parameter"))
     }
 }
@@ -214,16 +299,12 @@ pub struct State<T>(pub T);
 
 impl<T: Clone + Send + Sync + 'static> FromRequestParts for State<T> {
     fn from_request_parts(req: &Request) -> Result<Self> {
-        req.state()
-            .get::<T>()
-            .cloned()
-            .map(State)
-            .ok_or_else(|| {
-                ApiError::internal(format!(
-                    "State of type `{}` not found. Did you forget to call .state()?",
-                    std::any::type_name::<T>()
-                ))
-            })
+        req.state().get::<T>().cloned().map(State).ok_or_else(|| {
+            ApiError::internal(format!(
+                "State of type `{}` not found. Did you forget to call .state()?",
+                std::any::type_name::<T>()
+            ))
+        })
     }
 }
 
@@ -241,9 +322,9 @@ pub struct Body(pub Bytes);
 
 impl FromRequest for Body {
     async fn from_request(req: &mut Request) -> Result<Self> {
-        let body = req.take_body().ok_or_else(|| {
-            ApiError::internal("Body already consumed")
-        })?;
+        let body = req
+            .take_body()
+            .ok_or_else(|| ApiError::internal("Body already consumed"))?;
         Ok(Body(body))
     }
 }
@@ -280,11 +361,184 @@ macro_rules! impl_from_request_parts_for_primitives {
 }
 
 impl_from_request_parts_for_primitives!(
-    i8, i16, i32, i64, i128, isize,
-    u8, u16, u32, u64, u128, usize,
-    f32, f64,
-    bool,
-    String
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64, bool, String
 );
 
-// Re-export Json from response for extraction (they share the type)
+// OperationModifier implementations for extractors
+
+use rustapi_openapi::utoipa_types::openapi;
+use rustapi_openapi::{
+    IntoParams, MediaType, Operation, OperationModifier, Parameter, RequestBody, ResponseModifier,
+    ResponseSpec, Schema, SchemaRef,
+};
+use std::collections::HashMap;
+
+// ValidatedJson - Adds request body
+impl<T: for<'a> Schema<'a>> OperationModifier for ValidatedJson<T> {
+    fn update_operation(op: &mut Operation) {
+        let (name, _) = T::schema();
+
+        let schema_ref = SchemaRef::Ref {
+            reference: format!("#/components/schemas/{}", name),
+        };
+
+        let mut content = HashMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType { schema: schema_ref },
+        );
+
+        op.request_body = Some(RequestBody {
+            required: true,
+            content,
+        });
+
+        // Add 422 Validation Error response
+        op.responses.insert(
+            "422".to_string(),
+            ResponseSpec {
+                description: "Validation Error".to_string(),
+                content: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "application/json".to_string(),
+                        MediaType {
+                            schema: SchemaRef::Ref {
+                                reference: "#/components/schemas/ValidationErrorSchema".to_string(),
+                            },
+                        },
+                    );
+                    Some(map)
+                },
+                ..Default::default()
+            },
+        );
+    }
+}
+
+// Json - Adds request body (Same as ValidatedJson)
+impl<T: for<'a> Schema<'a>> OperationModifier for Json<T> {
+    fn update_operation(op: &mut Operation) {
+        let (name, _) = T::schema();
+
+        let schema_ref = SchemaRef::Ref {
+            reference: format!("#/components/schemas/{}", name),
+        };
+
+        let mut content = HashMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType { schema: schema_ref },
+        );
+
+        op.request_body = Some(RequestBody {
+            required: true,
+            content,
+        });
+    }
+}
+
+// Path - Placeholder for path params
+impl<T> OperationModifier for Path<T> {
+    fn update_operation(_op: &mut Operation) {
+        // TODO: Implement path param extraction
+    }
+}
+
+// Query - Extracts query params using IntoParams
+impl<T: IntoParams> OperationModifier for Query<T> {
+    fn update_operation(op: &mut Operation) {
+        let params = T::into_params(|| Some(openapi::path::ParameterIn::Query));
+
+        let new_params: Vec<Parameter> = params
+            .into_iter()
+            .map(|p| {
+                let schema = match p.schema {
+                    Some(schema) => match schema {
+                        openapi::RefOr::Ref(r) => SchemaRef::Ref {
+                            reference: r.ref_location,
+                        },
+                        openapi::RefOr::T(s) => {
+                            let value = serde_json::to_value(s).unwrap_or(serde_json::Value::Null);
+                            SchemaRef::Inline(value)
+                        }
+                    },
+                    None => SchemaRef::Inline(serde_json::Value::Null),
+                };
+
+                let required = match p.required {
+                    openapi::Required::True => true,
+                    openapi::Required::False => false,
+                };
+
+                Parameter {
+                    name: p.name,
+                    location: "query".to_string(), // explicitly query
+                    required,
+                    description: p.description,
+                    schema,
+                }
+            })
+            .collect();
+
+        if let Some(existing) = &mut op.parameters {
+            existing.extend(new_params);
+        } else {
+            op.parameters = Some(new_params);
+        }
+    }
+}
+
+// State - No op
+impl<T> OperationModifier for State<T> {
+    fn update_operation(_op: &mut Operation) {}
+}
+
+// Body - Generic binary body
+impl OperationModifier for Body {
+    fn update_operation(op: &mut Operation) {
+        let mut content = HashMap::new();
+        content.insert(
+            "application/octet-stream".to_string(),
+            MediaType {
+                schema: SchemaRef::Inline(
+                    serde_json::json!({ "type": "string", "format": "binary" }),
+                ),
+            },
+        );
+
+        op.request_body = Some(RequestBody {
+            required: true,
+            content,
+        });
+    }
+}
+
+// ResponseModifier implementations for extractors
+
+// Json<T> - 200 OK with schema T
+impl<T: for<'a> Schema<'a>> ResponseModifier for Json<T> {
+    fn update_response(op: &mut Operation) {
+        let (name, _) = T::schema();
+
+        let schema_ref = SchemaRef::Ref {
+            reference: format!("#/components/schemas/{}", name),
+        };
+
+        op.responses.insert(
+            "200".to_string(),
+            ResponseSpec {
+                description: "Successful response".to_string(),
+                content: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "application/json".to_string(),
+                        MediaType { schema: schema_ref },
+                    );
+                    Some(map)
+                },
+                ..Default::default()
+            },
+        );
+    }
+}

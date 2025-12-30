@@ -3,12 +3,14 @@
 use crate::handler::{into_boxed_handler, BoxedHandler, Handler};
 use http::{Extensions, Method};
 use matchit::Router as MatchitRouter;
+use rustapi_openapi::Operation;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 /// HTTP method router for a single path
 pub struct MethodRouter {
     handlers: HashMap<Method, BoxedHandler>,
+    pub(crate) operations: HashMap<Method, Operation>,
 }
 
 impl MethodRouter {
@@ -16,12 +18,14 @@ impl MethodRouter {
     pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
+            operations: HashMap::new(),
         }
     }
 
     /// Add a handler for a specific method
-    fn on(mut self, method: Method, handler: BoxedHandler) -> Self {
-        self.handlers.insert(method, handler);
+    fn on(mut self, method: Method, handler: BoxedHandler, operation: Operation) -> Self {
+        self.handlers.insert(method.clone(), handler);
+        self.operations.insert(method, operation);
         self
     }
 
@@ -33,6 +37,14 @@ impl MethodRouter {
     /// Get allowed methods for 405 response
     pub(crate) fn allowed_methods(&self) -> Vec<Method> {
         self.handlers.keys().cloned().collect()
+    }
+
+    /// Create from pre-boxed handlers (internal use)
+    pub(crate) fn from_boxed(handlers: HashMap<Method, BoxedHandler>) -> Self {
+        Self { 
+            handlers,
+            operations: HashMap::new(), // Operations lost when using raw boxed handlers for now
+        }
     }
 }
 
@@ -48,7 +60,9 @@ where
     H: Handler<T>,
     T: 'static,
 {
-    MethodRouter::new().on(Method::GET, into_boxed_handler(handler))
+    let mut op = Operation::new();
+    H::update_operation(&mut op);
+    MethodRouter::new().on(Method::GET, into_boxed_handler(handler), op)
 }
 
 /// Create a POST route handler
@@ -57,7 +71,9 @@ where
     H: Handler<T>,
     T: 'static,
 {
-    MethodRouter::new().on(Method::POST, into_boxed_handler(handler))
+    let mut op = Operation::new();
+    H::update_operation(&mut op);
+    MethodRouter::new().on(Method::POST, into_boxed_handler(handler), op)
 }
 
 /// Create a PUT route handler
@@ -66,7 +82,9 @@ where
     H: Handler<T>,
     T: 'static,
 {
-    MethodRouter::new().on(Method::PUT, into_boxed_handler(handler))
+    let mut op = Operation::new();
+    H::update_operation(&mut op);
+    MethodRouter::new().on(Method::PUT, into_boxed_handler(handler), op)
 }
 
 /// Create a PATCH route handler
@@ -75,7 +93,9 @@ where
     H: Handler<T>,
     T: 'static,
 {
-    MethodRouter::new().on(Method::PATCH, into_boxed_handler(handler))
+    let mut op = Operation::new();
+    H::update_operation(&mut op);
+    MethodRouter::new().on(Method::PATCH, into_boxed_handler(handler), op)
 }
 
 /// Create a DELETE route handler
@@ -84,7 +104,9 @@ where
     H: Handler<T>,
     T: 'static,
 {
-    MethodRouter::new().on(Method::DELETE, into_boxed_handler(handler))
+    let mut op = Operation::new();
+    H::update_operation(&mut op);
+    MethodRouter::new().on(Method::DELETE, into_boxed_handler(handler), op)
 }
 
 /// Main router
