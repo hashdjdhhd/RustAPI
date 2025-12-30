@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.jpg" alt="RustAPI Logo" width="200" height="200" />
+  <img src="https://raw.githubusercontent.com/Tuntii/RustAPI/refs/heads/main/assets/logo.jpg" alt="RustAPI Logo" width="200" height="200" />
   <h1>RustAPI</h1>
   <p>
     <strong>The Ergonomic Web Framework for Rust.</strong><br>
