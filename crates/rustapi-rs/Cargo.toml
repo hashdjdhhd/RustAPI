@@ -12,7 +12,7 @@ rust-version.workspace = true
 readme = "README.md"
 
 [dependencies]
-rustapi-core = { workspace = true }
+rustapi-core = { workspace = true, default-features = false }
 rustapi-macros = { workspace = true }
 
 # Re-exports for user convenience
@@ -21,11 +21,11 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 validator = { workspace = true }
-rustapi-openapi = { workspace = true }
+rustapi-openapi = { workspace = true, default-features = false }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
 default = ["swagger-ui"]
-swagger-ui = []
+swagger-ui = ["rustapi-core/swagger-ui", "rustapi-openapi/swagger-ui"]

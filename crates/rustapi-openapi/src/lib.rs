@@ -29,14 +29,18 @@
 //!     .await
 //! ```
 
-mod spec;
-mod swagger;
 mod config;
 mod schemas;
+mod spec;
+#[cfg(feature = "swagger-ui")]
+mod swagger;
 
 pub use config::OpenApiConfig;
-pub use spec::{OpenApiSpec, ApiInfo, Operation, PathItem, Parameter, ResponseSpec, OperationModifier, RequestBody, MediaType, SchemaRef, ResponseModifier};
-pub use schemas::{ErrorSchema, ValidationErrorSchema, FieldErrorSchema};
+pub use schemas::{ErrorSchema, FieldErrorSchema, ValidationErrorSchema};
+pub use spec::{
+    ApiInfo, MediaType, OpenApiSpec, Operation, OperationModifier, Parameter, PathItem,
+    RequestBody, ResponseModifier, ResponseSpec, SchemaRef,
+};
 
 // Re-export utoipa's ToSchema derive macro as Schema
 pub use utoipa::ToSchema as Schema;
@@ -45,11 +49,11 @@ pub use utoipa::IntoParams;
 
 // Re-export utoipa types for advanced usage
 pub mod utoipa_types {
-    pub use utoipa::{ToSchema, IntoParams, OpenApi, Modify, openapi};
+    pub use utoipa::{openapi, IntoParams, Modify, OpenApi, ToSchema};
 }
 
 use bytes::Bytes;
-use http::{Response, StatusCode, header};
+use http::{header, Response, StatusCode};
 use http_body_util::Full;
 
 /// Generate OpenAPI JSON response
@@ -68,6 +72,7 @@ pub fn openapi_json(spec: &OpenApiSpec) -> Response<Full<Bytes>> {
 }
 
 /// Generate Swagger UI HTML response
+#[cfg(feature = "swagger-ui")]
 pub fn swagger_ui_html(openapi_url: &str) -> Response<Full<Bytes>> {
     let html = swagger::generate_swagger_html(openapi_url);
     Response::builder()
@@ -76,4 +81,3 @@ pub fn swagger_ui_html(openapi_url: &str) -> Response<Full<Bytes>> {
         .body(Full::new(Bytes::from(html)))
         .unwrap()
 }
-

@@ -42,7 +42,10 @@ inventory = { workspace = true }
 rustapi-validate = { workspace = true }
 
 # OpenAPI
-rustapi-openapi = { workspace = true }
+rustapi-openapi = { workspace = true, default-features = false }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+[features]
+default = ["swagger-ui"]
+swagger-ui = ["rustapi-openapi/swagger-ui"]

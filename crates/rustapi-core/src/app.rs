@@ -224,12 +224,13 @@ impl RustApi {
     /// # Example
     ///
     /// ```rust,ignore
-    /// RustApi::new()
-    ///     .route("/users", get(list_users))
-    ///     .docs("/docs")  // Swagger UI at /docs, spec at /docs/openapi.json
-    ///     .run("127.0.0.1:8080")
-    ///     .await
+    // / RustApi::new()
+    // /     .route("/users", get(list_users))
+    // /     .docs("/docs")  // Swagger UI at /docs, spec at /docs/openapi.json
+    // /     .run("127.0.0.1:8080")
+    // /     .await
     /// ```
+    #[cfg(feature = "swagger-ui")]
     pub fn docs(self, path: &str) -> Self {
         let title = self.openapi_spec.info.title.clone();
         let version = self.openapi_spec.info.version.clone();
@@ -246,6 +247,7 @@ impl RustApi {
     /// RustApi::new()
     ///     .docs_with_info("/docs", "My API", "2.0.0", Some("API for managing users"))
     /// ```
+    #[cfg(feature = "swagger-ui")]
     pub fn docs_with_info(
         mut self,
         path: &str,
