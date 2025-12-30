@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rustapi-rs",
+    "crates/rustapi-core",
+    "crates/rustapi-macros",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["RustAPI Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tunay/RustAPI"
+keywords = ["web", "framework", "api", "rest", "http"]
+categories = ["web-programming::http-server"]
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# HTTP
+hyper = { version = "1.1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http = "1.0"
+http-body-util = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Middleware
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["full"] }
+tower-service = "0.3"
+
+# Utilities
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures-util = "0.3"
+bytes = "1.5"
+matchit = "0.7"  # Radix tree router
+pin-project-lite = "0.2"
+
+# Proc macros
+syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+inventory = "0.3"
+
+# Internal crates
+rustapi-core = { path = "crates/rustapi-core" }
+rustapi-macros = { path = "crates/rustapi-macros" }
