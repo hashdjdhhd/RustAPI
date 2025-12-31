@@ -201,7 +201,7 @@ impl RustApi {
         self.route(path, method_router)
     }
 
-    /// Mount a route created with #[rustapi::get], #[rustapi::post], etc.
+    /// Mount a route created with `#[rustapi::get]`, `#[rustapi::post]`, etc.
     ///
     /// # Example
     ///
@@ -297,12 +297,12 @@ impl RustApi {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    // / RustApi::new()
-    // /     .route("/users", get(list_users))
-    // /     .docs("/docs")  // Swagger UI at /docs, spec at /docs/openapi.json
-    // /     .run("127.0.0.1:8080")
-    // /     .await
+    /// ```text
+    /// RustApi::new()
+    ///     .route("/users", get(list_users))
+    ///     .docs("/docs")  // Swagger UI at /docs, spec at /docs/openapi.json
+    ///     .run("127.0.0.1:8080")
+    ///     .await
     /// ```
     #[cfg(feature = "swagger-ui")]
     pub fn docs(self, path: &str) -> Self {

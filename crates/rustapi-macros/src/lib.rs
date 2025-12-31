@@ -57,9 +57,8 @@ fn validate_path_syntax(path: &str, span: proc_macro2::Span) -> Result<(), syn::
     // Validate path parameter syntax
     let mut brace_depth = 0;
     let mut param_start = None;
-    let mut chars = path.char_indices().peekable();
 
-    while let Some((i, ch)) = chars.next() {
+    for (i, ch) in path.char_indices() {
         match ch {
             '{' => {
                 if brace_depth > 0 {

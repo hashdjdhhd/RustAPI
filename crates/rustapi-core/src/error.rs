@@ -1,4 +1,61 @@
 //! Error types for RustAPI
+//!
+//! This module provides structured error handling with environment-aware
+//! error masking for production safety.
+//!
+//! # Error Response Format
+//!
+//! All errors are returned as JSON with a consistent structure:
+//!
+//! ```json
+//! {
+//!   "error": {
+//!     "type": "not_found",
+//!     "message": "User not found",
+//!     "fields": null
+//!   },
+//!   "error_id": "err_a1b2c3d4e5f6"
+//! }
+//! ```
+//!
+//! # Environment-Aware Error Masking
+//!
+//! In production mode (`RUSTAPI_ENV=production`), internal server errors (5xx)
+//! are masked to prevent information leakage:
+//!
+//! - **Production**: Generic "An internal error occurred" message
+//! - **Development**: Full error details for debugging
+//!
+//! Validation errors always include field details regardless of environment.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use rustapi_core::{ApiError, Result};
+//! use http::StatusCode;
+//!
+//! async fn get_user(id: i64) -> Result<Json<User>> {
+//!     let user = db.find_user(id)
+//!         .ok_or_else(|| ApiError::not_found("User not found"))?;
+//!     Ok(Json(user))
+//! }
+//!
+//! // Create custom errors
+//! let error = ApiError::new(StatusCode::CONFLICT, "duplicate", "Email already exists");
+//!
+//! // Convenience constructors
+//! let bad_request = ApiError::bad_request("Invalid input");
+//! let unauthorized = ApiError::unauthorized("Invalid token");
+//! let forbidden = ApiError::forbidden("Access denied");
+//! let not_found = ApiError::not_found("Resource not found");
+//! let internal = ApiError::internal("Something went wrong");
+//! ```
+//!
+//! # Error ID Correlation
+//!
+//! Every error response includes a unique `error_id` (format: `err_{uuid}`) that
+//! appears in both the response and server logs, enabling easy correlation for
+//! debugging.
 
 use http::StatusCode;
 use serde::Serialize;
@@ -14,6 +71,20 @@ pub type Result<T, E = ApiError> = std::result::Result<T, E>;
 /// Controls whether internal error details are exposed in API responses.
 /// In production, internal details are masked to prevent information leakage.
 /// In development, full error details are shown for debugging.
+///
+/// # Example
+///
+/// ```
+/// use rustapi_core::Environment;
+///
+/// let dev = Environment::Development;
+/// assert!(dev.is_development());
+/// assert!(!dev.is_production());
+///
+/// let prod = Environment::Production;
+/// assert!(prod.is_production());
+/// assert!(!prod.is_development());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Environment {
     /// Development mode - shows full error details in responses
@@ -91,6 +162,19 @@ pub fn set_environment_for_test(env: Environment) -> Result<(), Environment> {
 }
 
 /// Generate a unique error ID using UUID v4 format
+///
+/// Returns a string in the format `err_{uuid}` where uuid is a 32-character
+/// hexadecimal string (UUID v4 simple format).
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_core::error::generate_error_id;
+///
+/// let id = generate_error_id();
+/// assert!(id.starts_with("err_"));
+/// assert_eq!(id.len(), 36); // "err_" (4) + uuid (32)
+/// ```
 pub fn generate_error_id() -> String {
     format!("err_{}", Uuid::new_v4().simple())
 }
@@ -98,6 +182,25 @@ pub fn generate_error_id() -> String {
 /// Standard API error type
 ///
 /// Provides structured error responses following a consistent JSON format.
+///
+/// # Example
+///
+/// ```
+/// use rustapi_core::ApiError;
+/// use http::StatusCode;
+///
+/// // Create a custom error
+/// let error = ApiError::new(StatusCode::CONFLICT, "duplicate", "Email already exists");
+/// assert_eq!(error.status, StatusCode::CONFLICT);
+/// assert_eq!(error.error_type, "duplicate");
+///
+/// // Use convenience constructors
+/// let not_found = ApiError::not_found("User not found");
+/// assert_eq!(not_found.status, StatusCode::NOT_FOUND);
+///
+/// let bad_request = ApiError::bad_request("Invalid input");
+/// assert_eq!(bad_request.status, StatusCode::BAD_REQUEST);
+/// ```
 #[derive(Debug, Clone)]
 pub struct ApiError {
     /// HTTP status code

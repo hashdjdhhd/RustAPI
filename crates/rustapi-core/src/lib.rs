@@ -2,13 +2,58 @@
 //!
 //! Core library providing the foundational types and traits for RustAPI.
 //!
-//! This crate is not meant to be used directly. Use `rustapi-rs` instead.
+//! This crate provides the essential building blocks for the RustAPI web framework:
+//!
+//! - **Application Builder**: [`RustApi`] - The main entry point for building web applications
+//! - **Routing**: [`Router`], [`get`], [`post`], [`put`], [`patch`], [`delete`] - HTTP routing primitives
+//! - **Extractors**: [`Json`], [`Query`], [`Path`], [`State`], [`Body`], [`Headers`] - Request data extraction
+//! - **Responses**: [`IntoResponse`], [`Created`], [`NoContent`], [`Html`], [`Redirect`] - Response types
+//! - **Middleware**: [`BodyLimitLayer`], [`RequestIdLayer`], [`TracingLayer`] - Request processing layers
+//! - **Error Handling**: [`ApiError`], [`Result`] - Structured error responses
+//! - **Testing**: `TestClient` - Integration testing without network binding (requires `test-utils` feature)
+//!
+//! ## Quick Start
+//!
+//! ```rust,ignore
+//! use rustapi_core::{RustApi, get, Json};
+//! use serde::Serialize;
+//!
+//! #[derive(Serialize)]
+//! struct Message {
+//!     text: String,
+//! }
+//!
+//! async fn hello() -> Json<Message> {
+//!     Json(Message { text: "Hello, World!".to_string() })
+//! }
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+//!     RustApi::new()
+//!         .route("/", get(hello))
+//!         .run("127.0.0.1:8080")
+//!         .await
+//! }
+//! ```
+//!
+//! ## Feature Flags
+//!
+//! - `metrics` - Enable Prometheus metrics middleware
+//! - `cookies` - Enable cookie parsing extractor
+//! - `test-utils` - Enable testing utilities like `TestClient`
+//! - `swagger-ui` - Enable Swagger UI documentation endpoint
+//!
+//! ## Note
+//!
+//! This crate is typically not used directly. Use `rustapi-rs` instead for the
+//! full framework experience with all features and re-exports.
 
 mod app;
 mod error;
 mod extract;
 mod handler;
 pub mod middleware;
+pub mod path_validation;
 mod request;
 mod response;
 mod router;

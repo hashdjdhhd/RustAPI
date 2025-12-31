@@ -9,6 +9,8 @@ members = [
     "crates/rustapi-extras",
     "examples/hello-world",
     "examples/sqlx-crud",
+    "examples/crud-api",
+    "examples/auth-api",
 ]
 
 [workspace.package]
