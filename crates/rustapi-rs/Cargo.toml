@@ -14,6 +14,7 @@ readme = "README.md"
 [dependencies]
 rustapi-core = { workspace = true, default-features = false }
 rustapi-macros = { workspace = true }
+rustapi-extras = { workspace = true, optional = true }
 
 # Re-exports for user convenience
 tokio = { workspace = true }
@@ -29,3 +30,15 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 [features]
 default = ["swagger-ui"]
 swagger-ui = ["rustapi-core/swagger-ui", "rustapi-openapi/swagger-ui"]
+
+# Security and utility features (from rustapi-extras)
+jwt = ["dep:rustapi-extras", "rustapi-extras/jwt"]
+cors = ["dep:rustapi-extras", "rustapi-extras/cors"]
+rate-limit = ["dep:rustapi-extras", "rustapi-extras/rate-limit"]
+config = ["dep:rustapi-extras", "rustapi-extras/config"]
+cookies = ["dep:rustapi-extras", "rustapi-extras/cookies", "rustapi-core/cookies"]
+sqlx = ["dep:rustapi-extras", "rustapi-extras/sqlx"]
+
+# Meta features
+extras = ["jwt", "cors", "rate-limit"]
+full = ["extras", "config", "cookies", "sqlx"]

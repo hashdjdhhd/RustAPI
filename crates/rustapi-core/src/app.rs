@@ -1,6 +1,7 @@
 //! RustApi application builder
 
 use crate::error::Result;
+use crate::middleware::{LayerStack, MiddlewareLayer};
 use crate::router::{MethodRouter, Router};
 use crate::server::Server;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -25,6 +26,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 pub struct RustApi {
     router: Router,
     openapi_spec: rustapi_openapi::OpenApiSpec,
+    layers: LayerStack,
 }
 
 impl RustApi {
@@ -45,7 +47,35 @@ impl RustApi {
                 .register::<rustapi_openapi::ErrorSchema>()
                 .register::<rustapi_openapi::ValidationErrorSchema>()
                 .register::<rustapi_openapi::FieldErrorSchema>(),
+            layers: LayerStack::new(),
         }
+    }
+
+    /// Add a middleware layer to the application
+    ///
+    /// Layers are executed in the order they are added (outermost first).
+    /// The first layer added will be the first to process the request and
+    /// the last to process the response.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use rustapi_rs::prelude::*;
+    /// use rustapi_core::middleware::{RequestIdLayer, TracingLayer};
+    ///
+    /// RustApi::new()
+    ///     .layer(RequestIdLayer::new())  // First to process request
+    ///     .layer(TracingLayer::new())    // Second to process request
+    ///     .route("/", get(handler))
+    ///     .run("127.0.0.1:8080")
+    ///     .await
+    /// ```
+    pub fn layer<L>(mut self, layer: L) -> Self
+    where
+        L: MiddlewareLayer,
+    {
+        self.layers.push(Box::new(layer));
+        self
     }
 
     /// Add application state
@@ -307,13 +337,18 @@ impl RustApi {
     ///     .await
     /// ```
     pub async fn run(self, addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let server = Server::new(self.router);
+        let server = Server::new(self.router, self.layers);
         server.run(addr).await
     }
 
     /// Get the inner router (for testing or advanced usage)
     pub fn into_router(self) -> Router {
         self.router
+    }
+
+    /// Get the layer stack (for testing)
+    pub fn layers(&self) -> &LayerStack {
+        &self.layers
     }
 }
 

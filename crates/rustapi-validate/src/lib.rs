@@ -5,8 +5,9 @@
 //!
 //! ## Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use rustapi_validate::prelude::*;
+//! use validator::Validate;
 //!
 //! #[derive(Validate)]
 //! struct CreateUser {

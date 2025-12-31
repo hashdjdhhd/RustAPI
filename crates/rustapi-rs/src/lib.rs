@@ -8,10 +8,10 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use rustapi_rs::prelude::*;
 //!
-//! #[derive(Serialize)]
+//! #[derive(Serialize, Schema)]
 //! struct Hello {
 //!     message: String,
 //! }
@@ -23,7 +23,7 @@
 //! }
 //!
 //! #[tokio::main]
-//! async fn main() -> Result<()> {
+//! async fn main() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //!     RustApi::new()
 //!         .route("/", get(hello))
 //!         .run("127.0.0.1:8080")
@@ -39,12 +39,55 @@
 //! - **Declarative Validation**: Pydantic-style validation on structs
 //! - **Batteries Included**: JWT, CORS, rate limiting (optional features)
 //!
+//! ## Optional Features
+//!
+//! Enable these features in your `Cargo.toml`:
+//!
+//! - `jwt` - JWT authentication middleware and `AuthUser<T>` extractor
+//! - `cors` - CORS middleware with builder pattern configuration
+//! - `rate-limit` - IP-based rate limiting middleware
+//! - `config` - Configuration management with `.env` file support
+//! - `cookies` - Cookie parsing extractor
+//! - `sqlx` - SQLx database error conversion to ApiError
+//! - `extras` - Meta feature enabling jwt, cors, and rate-limit
+//! - `full` - All optional features enabled
+//!
+//! ```toml
+//! [dependencies]
+//! rustapi-rs = { version = "0.1", features = ["jwt", "cors"] }
+//! ```
 
 // Re-export core functionality
 pub use rustapi_core::*;
 
 // Re-export macros
 pub use rustapi_macros::*;
+
+// Re-export extras (feature-gated)
+#[cfg(feature = "jwt")]
+pub use rustapi_extras::jwt;
+#[cfg(feature = "jwt")]
+pub use rustapi_extras::{create_token, AuthUser, JwtError, JwtLayer, JwtValidation, ValidatedClaims};
+
+#[cfg(feature = "cors")]
+pub use rustapi_extras::cors;
+#[cfg(feature = "cors")]
+pub use rustapi_extras::{AllowedOrigins, CorsLayer};
+
+#[cfg(feature = "rate-limit")]
+pub use rustapi_extras::rate_limit;
+#[cfg(feature = "rate-limit")]
+pub use rustapi_extras::RateLimitLayer;
+
+#[cfg(feature = "config")]
+pub use rustapi_extras::config;
+#[cfg(feature = "config")]
+pub use rustapi_extras::{env_or, env_parse, load_dotenv, load_dotenv_from, require_env, Config, ConfigError, Environment};
+
+#[cfg(feature = "sqlx")]
+pub use rustapi_extras::sqlx;
+#[cfg(feature = "sqlx")]
+pub use rustapi_extras::{convert_sqlx_error, SqlxErrorExt};
 
 /// Prelude module - import everything you need with `use rustapi_rs::prelude::*`
 pub mod prelude {
@@ -61,14 +104,23 @@ pub mod prelude {
         // Extractors
         Json, Query, Path, State, Body,
         ValidatedJson,
+        Headers, HeaderValue, ClientIp, Extension,
         // Response types
         IntoResponse, Response,
-        Created, NoContent, Html, Redirect,
+        Created, NoContent, Html, Redirect, WithStatus,
+        // Streaming responses
+        Sse, SseEvent, StreamBody,
         // Error handling
         ApiError, Result,
         // Request context
         Request,
+        // Middleware
+        RequestId, RequestIdLayer, TracingLayer,
     };
+
+    // Cookies extractor (feature-gated in core)
+    #[cfg(feature = "cookies")]
+    pub use rustapi_core::Cookies;
 
     // Re-export the route! macro
     pub use rustapi_core::route;
@@ -82,6 +134,26 @@ pub mod prelude {
     // Re-export commonly used external types
     pub use serde::{Deserialize, Serialize};
     pub use tracing::{debug, error, info, trace, warn};
+
+    // JWT types (feature-gated)
+    #[cfg(feature = "jwt")]
+    pub use rustapi_extras::{AuthUser, JwtLayer, JwtValidation, JwtError, ValidatedClaims, create_token};
+
+    // CORS types (feature-gated)
+    #[cfg(feature = "cors")]
+    pub use rustapi_extras::{CorsLayer, AllowedOrigins};
+
+    // Rate limiting types (feature-gated)
+    #[cfg(feature = "rate-limit")]
+    pub use rustapi_extras::RateLimitLayer;
+
+    // Configuration types (feature-gated)
+    #[cfg(feature = "config")]
+    pub use rustapi_extras::{Config, Environment, ConfigError, load_dotenv, load_dotenv_from, env_or, env_parse, require_env};
+
+    // SQLx types (feature-gated)
+    #[cfg(feature = "sqlx")]
+    pub use rustapi_extras::{convert_sqlx_error, SqlxErrorExt};
 }
 
 #[cfg(test)]

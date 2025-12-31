@@ -8,19 +8,27 @@ mod app;
 mod error;
 mod extract;
 mod handler;
+pub mod middleware;
 mod request;
 mod response;
 mod router;
 mod server;
+pub mod sse;
+pub mod stream;
 
 // Public API
 pub use app::RustApi;
 pub use error::{ApiError, Result};
-pub use extract::{Body, FromRequest, FromRequestParts, Json, Path, Query, State, ValidatedJson};
+pub use extract::{Body, ClientIp, Extension, FromRequest, FromRequestParts, HeaderValue, Headers, Json, Path, Query, State, ValidatedJson};
+#[cfg(feature = "cookies")]
+pub use extract::Cookies;
 pub use handler::{
     Handler, HandlerService, Route, RouteHandler,
     get_route, post_route, put_route, patch_route, delete_route,
 };
+pub use middleware::{RequestId, RequestIdLayer, TracingLayer};
 pub use request::Request;
-pub use response::{Created, Html, IntoResponse, NoContent, Redirect, Response};
+pub use response::{Created, Html, IntoResponse, NoContent, Redirect, Response, WithStatus};
 pub use router::{delete, get, patch, post, put, MethodRouter, Router};
+pub use sse::{Sse, SseEvent};
+pub use stream::StreamBody;
