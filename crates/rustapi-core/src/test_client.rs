@@ -23,12 +23,12 @@
 //! }
 //! ```
 
-use crate::middleware::{BoxedNext, LayerStack, BodyLimitLayer, DEFAULT_BODY_LIMIT};
+use crate::error::ApiError;
+use crate::middleware::{BodyLimitLayer, BoxedNext, LayerStack, DEFAULT_BODY_LIMIT};
 use crate::request::Request;
+use crate::response::IntoResponse;
 use crate::response::Response;
 use crate::router::{RouteMatch, Router};
-use crate::error::ApiError;
-use crate::response::IntoResponse;
 use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, Method, StatusCode};
 use http_body_util::BodyExt;
@@ -59,11 +59,11 @@ impl TestClient {
         // Get the router and layers from the app
         let layers = app.layers().clone();
         let router = app.into_router();
-        
+
         // Apply body limit layer if not already present
         let mut layers = layers;
         layers.prepend(Box::new(BodyLimitLayer::new(DEFAULT_BODY_LIMIT)));
-        
+
         Self {
             router: Arc::new(router),
             layers: Arc::new(layers),
@@ -74,10 +74,10 @@ impl TestClient {
     pub fn with_body_limit(app: crate::app::RustApi, limit: usize) -> Self {
         let layers = app.layers().clone();
         let router = app.into_router();
-        
+
         let mut layers = layers;
         layers.prepend(Box::new(BodyLimitLayer::new(limit)));
-        
+
         Self {
             router: Arc::new(router),
             layers: Arc::new(layers),
@@ -125,8 +125,9 @@ impl TestClient {
         let (handler, params) = match self.router.match_route(&path, &method) {
             RouteMatch::Found { handler, params } => (handler.clone(), params),
             RouteMatch::NotFound => {
-                let response = ApiError::not_found(format!("No route found for {} {}", method, path))
-                    .into_response();
+                let response =
+                    ApiError::not_found(format!("No route found for {} {}", method, path))
+                        .into_response();
                 return TestResponse::from_response(response).await;
             }
             RouteMatch::MethodNotAllowed { allowed } => {
@@ -138,36 +139,28 @@ impl TestClient {
                 )
                 .into_response();
 
-                response.headers_mut().insert(
-                    header::ALLOW,
-                    allowed_str.join(", ").parse().unwrap(),
-                );
+                response
+                    .headers_mut()
+                    .insert(header::ALLOW, allowed_str.join(", ").parse().unwrap());
                 return TestResponse::from_response(response).await;
             }
         };
 
         // Build the internal Request
         let uri: http::Uri = path.parse().unwrap_or_else(|_| "/".parse().unwrap());
-        let mut builder = http::Request::builder()
-            .method(method)
-            .uri(uri);
-        
+        let mut builder = http::Request::builder().method(method).uri(uri);
+
         // Add headers
         for (key, value) in req.headers.iter() {
             builder = builder.header(key, value);
         }
-        
+
         let http_req = builder.body(()).unwrap();
         let (parts, _) = http_req.into_parts();
-        
+
         let body_bytes = req.body.unwrap_or_default();
-        
-        let request = Request::new(
-            parts,
-            body_bytes,
-            self.router.state_ref(),
-            params,
-        );
+
+        let request = Request::new(parts, body_bytes, self.router.state_ref(), params);
 
         // Create the final handler as a BoxedNext
         let final_handler: BoxedNext = Arc::new(move |req: Request| {
@@ -178,7 +171,7 @@ impl TestClient {
 
         // Execute through middleware stack
         let response = self.layers.execute(request, final_handler).await;
-        
+
         TestResponse::from_response(response).await
     }
 }
@@ -309,10 +302,12 @@ impl TestResponse {
     /// Create a TestResponse from an HTTP response
     async fn from_response(response: Response) -> Self {
         let (parts, body) = response.into_parts();
-        let body_bytes = body.collect().await
+        let body_bytes = body
+            .collect()
+            .await
             .map(|b| b.to_bytes())
             .unwrap_or_default();
-        
+
         Self {
             status: parts.status,
             headers: parts.headers,
@@ -368,9 +363,12 @@ impl TestResponse {
     pub fn assert_status<S: Into<StatusCode>>(&self, expected: S) -> &Self {
         let expected = expected.into();
         assert_eq!(
-            self.status, expected,
+            self.status,
+            expected,
             "Expected status {}, got {}. Body: {}",
-            expected, self.status, self.text()
+            expected,
+            self.status,
+            self.text()
         );
         self
     }
@@ -387,11 +385,12 @@ impl TestResponse {
     /// response.assert_header("content-type", "application/json");
     /// ```
     pub fn assert_header(&self, key: &str, expected: &str) -> &Self {
-        let actual = self.headers
+        let actual = self
+            .headers
             .get(key)
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
-        
+
         assert_eq!(
             actual, expected,
             "Expected header '{}' to be '{}', got '{}'",
@@ -411,12 +410,12 @@ impl TestResponse {
     /// ```rust,ignore
     /// response.assert_json(&User { id: 1, name: "Alice".to_string() });
     /// ```
-    pub fn assert_json<T: DeserializeOwned + PartialEq + std::fmt::Debug>(&self, expected: &T) -> &Self {
+    pub fn assert_json<T: DeserializeOwned + PartialEq + std::fmt::Debug>(
+        &self,
+        expected: &T,
+    ) -> &Self {
         let actual: T = self.json().expect("Failed to parse response body as JSON");
-        assert_eq!(
-            &actual, expected,
-            "JSON body mismatch"
-        );
+        assert_eq!(&actual, expected, "JSON body mismatch");
         self
     }
 
@@ -430,12 +429,12 @@ impl TestResponse {
         assert!(
             body.contains(expected),
             "Expected body to contain '{}', got '{}'",
-            expected, body
+            expected,
+            body
         );
         self
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -471,7 +470,7 @@ mod tests {
     async fn test_client_get_request() {
         let app = RustApi::new().route("/", get(hello));
         let client = TestClient::new(app);
-        
+
         let response = client.get("/").await;
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.text(), "Hello, World!");
@@ -481,7 +480,7 @@ mod tests {
     async fn test_client_not_found() {
         let app = RustApi::new().route("/", get(hello));
         let client = TestClient::new(app);
-        
+
         let response = client.get("/nonexistent").await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
@@ -490,10 +489,10 @@ mod tests {
     async fn test_client_json_response() {
         let app = RustApi::new().route("/json", get(json_string_handler));
         let client = TestClient::new(app);
-        
+
         let response = client.get("/json").await;
         response.assert_status(StatusCode::OK);
-        
+
         let data: TestData = response.json().unwrap();
         assert_eq!(data.message, "test");
         assert_eq!(data.count, 42);
@@ -503,15 +502,15 @@ mod tests {
     async fn test_client_post_json() {
         let app = RustApi::new().route("/echo", crate::router::post(echo_body));
         let client = TestClient::new(app);
-        
+
         let input = TestData {
             message: "hello".to_string(),
             count: 123,
         };
-        
+
         let response = client.post_json("/echo", &input).await;
         response.assert_status(StatusCode::OK);
-        
+
         let output: TestData = response.json().unwrap();
         assert_eq!(output, input);
     }
@@ -521,16 +520,16 @@ mod tests {
         // Test all HTTP methods are available
         let get_req = TestRequest::get("/test");
         assert_eq!(get_req.method, Method::GET);
-        
+
         let post_req = TestRequest::post("/test");
         assert_eq!(post_req.method, Method::POST);
-        
+
         let put_req = TestRequest::put("/test");
         assert_eq!(put_req.method, Method::PUT);
-        
+
         let patch_req = TestRequest::patch("/test");
         assert_eq!(patch_req.method, Method::PATCH);
-        
+
         let delete_req = TestRequest::delete("/test");
         assert_eq!(delete_req.method, Method::DELETE);
     }
@@ -540,7 +539,7 @@ mod tests {
         let req = TestRequest::get("/test")
             .header("Authorization", "Bearer token")
             .header("Accept", "application/json");
-        
+
         assert!(req.headers.contains_key("authorization"));
         assert!(req.headers.contains_key("accept"));
     }
@@ -551,9 +550,9 @@ mod tests {
             message: "test".to_string(),
             count: 1,
         };
-        
+
         let req = TestRequest::post("/test").json(&data);
-        
+
         assert!(req.body.is_some());
         assert_eq!(
             req.headers.get(header::CONTENT_TYPE).unwrap(),
@@ -565,9 +564,9 @@ mod tests {
     async fn test_response_assertions() {
         let app = RustApi::new().route("/json", get(json_string_handler));
         let client = TestClient::new(app);
-        
+
         let response = client.get("/json").await;
-        
+
         // Chain assertions
         response
             .assert_status(StatusCode::OK)
@@ -578,14 +577,14 @@ mod tests {
     async fn test_response_assert_json() {
         let app = RustApi::new().route("/json", get(json_string_handler));
         let client = TestClient::new(app);
-        
+
         let response = client.get("/json").await;
-        
+
         let expected = TestData {
             message: "test".to_string(),
             count: 42,
         };
-        
+
         response.assert_json(&expected);
     }
 
@@ -610,24 +609,24 @@ mod tests {
                 // Create app with echo handler
                 let app = RustApi::new().route("/echo", crate::router::post(echo_body));
                 let client = TestClient::new(app);
-                
+
                 // Create test data
                 let input = TestData {
                     message: message.clone(),
                     count,
                 };
-                
+
                 // Send request through TestClient
                 let response = client.post_json("/echo", &input).await;
-                
+
                 // Verify response status is accessible
                 prop_assert_eq!(response.status(), StatusCode::OK);
-                
+
                 // Verify response body is accessible and correct
                 let output: TestData = response.json().expect("Should parse JSON");
                 prop_assert_eq!(output.message, message);
                 prop_assert_eq!(output.count, count);
-                
+
                 Ok(())
             })?;
         }
@@ -641,9 +640,9 @@ mod tests {
                 message,
                 count: 1,
             };
-            
+
             let req = TestRequest::post("/test").json(&data);
-            
+
             // Content-Type should be set to application/json
             let content_type = req.headers.get(header::CONTENT_TYPE);
             prop_assert!(content_type.is_some());
@@ -651,7 +650,7 @@ mod tests {
                 content_type.unwrap().to_str().unwrap(),
                 "application/json"
             );
-            
+
             // Body should be set
             prop_assert!(req.body.is_some());
         }
@@ -665,14 +664,14 @@ mod tests {
                 // Create app with a simple handler
                 let app = RustApi::new().route(&path, get(hello));
                 let client = TestClient::new(app);
-                
+
                 // Request should go through middleware pipeline
                 let response = client.get(&path).await;
-                
+
                 // Should get successful response
                 prop_assert_eq!(response.status(), StatusCode::OK);
                 prop_assert_eq!(response.text(), "Hello, World!");
-                
+
                 Ok(())
             })?;
         }
@@ -687,11 +686,11 @@ mod tests {
                 // Create app with one route
                 let app = RustApi::new().route(&registered_path, get(hello));
                 let client = TestClient::new(app);
-                
+
                 // Request to unregistered path should return 404
                 let response = client.get(&unregistered_path).await;
                 prop_assert_eq!(response.status(), StatusCode::NOT_FOUND);
-                
+
                 Ok(())
             })?;
         }
@@ -701,11 +700,11 @@ mod tests {
     async fn test_client_method_not_allowed() {
         let app = RustApi::new().route("/get-only", get(hello));
         let client = TestClient::new(app);
-        
+
         // POST to a GET-only route should return 405
         let response = client.request(TestRequest::post("/get-only")).await;
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
-        
+
         // Should have Allow header
         assert!(response.headers().contains_key(header::ALLOW));
     }
@@ -718,16 +717,18 @@ mod tests {
             // The header checking is done via the body echo
             String::from_utf8_lossy(&body.0).to_string()
         }
-        
+
         let app = RustApi::new().route("/check", crate::router::post(echo_header));
         let client = TestClient::new(app);
-        
-        let response = client.request(
-            TestRequest::post("/check")
-                .header("X-Custom-Header", "test-value")
-                .body("test body")
-        ).await;
-        
+
+        let response = client
+            .request(
+                TestRequest::post("/check")
+                    .header("X-Custom-Header", "test-value")
+                    .body("test body"),
+            )
+            .await;
+
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.text(), "test body");
     }
@@ -736,12 +737,11 @@ mod tests {
     async fn test_client_raw_body() {
         let app = RustApi::new().route("/echo", crate::router::post(echo_body));
         let client = TestClient::new(app);
-        
-        let response = client.request(
-            TestRequest::post("/echo")
-                .body("raw body content")
-        ).await;
-        
+
+        let response = client
+            .request(TestRequest::post("/echo").body("raw body content"))
+            .await;
+
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.text(), "raw body content");
     }

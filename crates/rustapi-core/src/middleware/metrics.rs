@@ -37,7 +37,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Default histogram buckets for request duration (in seconds)
-const DEFAULT_BUCKETS: &[f64] = &[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0];
+const DEFAULT_BUCKETS: &[f64] = &[
+    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+];
 
 /// Prometheus metrics middleware layer
 ///
@@ -311,10 +313,7 @@ mod tests {
             .headers()
             .get(http::header::CONTENT_TYPE)
             .unwrap();
-        assert!(content_type
-            .to_str()
-            .unwrap()
-            .contains("text/plain"));
+        assert!(content_type.to_str().unwrap().contains("text/plain"));
     }
 
     #[test]
@@ -580,9 +579,15 @@ mod tests {
             let metrics_vec = requests_total.get_metric();
             let matching_metric = metrics_vec.iter().find(|m| {
                 let labels = m.get_label();
-                labels.iter().any(|l| l.get_name() == "method" && l.get_value() == "GET")
-                    && labels.iter().any(|l| l.get_name() == "path" && l.get_value() == "/test")
-                    && labels.iter().any(|l| l.get_name() == "status" && l.get_value() == "200")
+                labels
+                    .iter()
+                    .any(|l| l.get_name() == "method" && l.get_value() == "GET")
+                    && labels
+                        .iter()
+                        .any(|l| l.get_name() == "path" && l.get_value() == "/test")
+                    && labels
+                        .iter()
+                        .any(|l| l.get_name() == "status" && l.get_value() == "200")
             });
 
             assert!(matching_metric.is_some());

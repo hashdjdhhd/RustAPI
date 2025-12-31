@@ -131,7 +131,7 @@ impl Request {
     }
 
     /// Create a test request from an http::Request
-    /// 
+    ///
     /// This is useful for testing middleware and extractors.
     #[cfg(any(test, feature = "test-utils"))]
     pub fn from_http_request<B>(req: http::Request<B>, body: Bytes) -> Self {

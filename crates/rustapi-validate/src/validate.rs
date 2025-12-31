@@ -39,8 +39,7 @@ use crate::error::ValidationError;
 pub trait Validate: validator::Validate {
     /// Validate the struct and return a `ValidationError` on failure.
     fn validate(&self) -> Result<(), ValidationError> {
-        validator::Validate::validate(self)
-            .map_err(ValidationError::from_validator_errors)
+        validator::Validate::validate(self).map_err(ValidationError::from_validator_errors)
     }
 
     /// Validate and return the struct if valid, error otherwise.
@@ -92,7 +91,7 @@ mod tests {
 
         let result = Validate::validate(&user);
         assert!(result.is_err());
-        
+
         let error = result.unwrap_err();
         assert!(error.fields.iter().any(|f| f.field == "email"));
     }
@@ -107,9 +106,12 @@ mod tests {
 
         let result = Validate::validate(&user);
         assert!(result.is_err());
-        
+
         let error = result.unwrap_err();
-        assert!(error.fields.iter().any(|f| f.field == "username" && f.code == "length"));
+        assert!(error
+            .fields
+            .iter()
+            .any(|f| f.field == "username" && f.code == "length"));
     }
 
     #[test]
@@ -122,9 +124,12 @@ mod tests {
 
         let result = Validate::validate(&user);
         assert!(result.is_err());
-        
+
         let error = result.unwrap_err();
-        assert!(error.fields.iter().any(|f| f.field == "age" && f.code == "range"));
+        assert!(error
+            .fields
+            .iter()
+            .any(|f| f.field == "age" && f.code == "range"));
     }
 
     #[test]
@@ -137,7 +142,7 @@ mod tests {
 
         let result = Validate::validate(&user);
         assert!(result.is_err());
-        
+
         let error = result.unwrap_err();
         assert!(error.fields.len() >= 3);
     }
@@ -152,7 +157,7 @@ mod tests {
 
         let result = user.validated();
         assert!(result.is_ok());
-        
+
         let validated_user = result.unwrap();
         assert_eq!(validated_user.email, "test@example.com");
     }

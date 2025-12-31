@@ -74,8 +74,8 @@ use crate::error::{ApiError, ErrorResponse};
 use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, StatusCode};
 use http_body_util::Full;
+use rustapi_openapi::{MediaType, Operation, ResponseModifier, ResponseSpec, Schema, SchemaRef};
 use serde::Serialize;
-use rustapi_openapi::{Operation, ResponseModifier, ResponseSpec, MediaType, SchemaRef, Schema};
 use std::collections::HashMap;
 
 /// HTTP Response type
@@ -188,30 +188,44 @@ impl ResponseModifier for ApiError {
     fn update_response(op: &mut Operation) {
         // We define common error responses here
         // 400 Bad Request
-        op.responses.insert("400".to_string(), ResponseSpec {
-            description: "Bad Request".to_string(),
-            content: {
-                let mut map = HashMap::new();
-                map.insert("application/json".to_string(), MediaType {
-                    schema: SchemaRef::Ref { reference: "#/components/schemas/ErrorSchema".to_string() },
-                });
-                Some(map)
+        op.responses.insert(
+            "400".to_string(),
+            ResponseSpec {
+                description: "Bad Request".to_string(),
+                content: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "application/json".to_string(),
+                        MediaType {
+                            schema: SchemaRef::Ref {
+                                reference: "#/components/schemas/ErrorSchema".to_string(),
+                            },
+                        },
+                    );
+                    Some(map)
+                },
             },
-            ..Default::default()
-        });
-        
+        );
+
         // 500 Internal Server Error
-        op.responses.insert("500".to_string(), ResponseSpec {
-            description: "Internal Server Error".to_string(),
-            content: {
-                let mut map = HashMap::new();
-                map.insert("application/json".to_string(), MediaType {
-                    schema: SchemaRef::Ref { reference: "#/components/schemas/ErrorSchema".to_string() },
-                });
-                Some(map)
+        op.responses.insert(
+            "500".to_string(),
+            ResponseSpec {
+                description: "Internal Server Error".to_string(),
+                content: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "application/json".to_string(),
+                        MediaType {
+                            schema: SchemaRef::Ref {
+                                reference: "#/components/schemas/ErrorSchema".to_string(),
+                            },
+                        },
+                    );
+                    Some(map)
+                },
             },
-            ..Default::default()
-        });
+        );
     }
 }
 
@@ -238,8 +252,9 @@ impl<T: Serialize> IntoResponse for Created<T> {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Full::new(Bytes::from(body)))
                 .unwrap(),
-            Err(err) => ApiError::internal(format!("Failed to serialize response: {}", err))
-                .into_response(),
+            Err(err) => {
+                ApiError::internal(format!("Failed to serialize response: {}", err)).into_response()
+            }
         }
     }
 }
@@ -247,22 +262,25 @@ impl<T: Serialize> IntoResponse for Created<T> {
 impl<T: for<'a> Schema<'a>> ResponseModifier for Created<T> {
     fn update_response(op: &mut Operation) {
         let (name, _) = T::schema();
-        
+
         let schema_ref = SchemaRef::Ref {
             reference: format!("#/components/schemas/{}", name),
         };
-        
-        op.responses.insert("201".to_string(), ResponseSpec {
-            description: "Created".to_string(),
-            content: {
-                let mut map = HashMap::new();
-                map.insert("application/json".to_string(), MediaType {
-                    schema: schema_ref,
-                });
-                Some(map)
+
+        op.responses.insert(
+            "201".to_string(),
+            ResponseSpec {
+                description: "Created".to_string(),
+                content: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "application/json".to_string(),
+                        MediaType { schema: schema_ref },
+                    );
+                    Some(map)
+                },
             },
-            ..Default::default()
-        });
+        );
     }
 }
 
@@ -292,10 +310,13 @@ impl IntoResponse for NoContent {
 
 impl ResponseModifier for NoContent {
     fn update_response(op: &mut Operation) {
-        op.responses.insert("204".to_string(), ResponseSpec {
-            description: "No Content".to_string(),
-            ..Default::default()
-        });
+        op.responses.insert(
+            "204".to_string(),
+            ResponseSpec {
+                description: "No Content".to_string(),
+                content: None,
+            },
+        );
     }
 }
 
@@ -315,17 +336,22 @@ impl<T: Into<String>> IntoResponse for Html<T> {
 
 impl<T> ResponseModifier for Html<T> {
     fn update_response(op: &mut Operation) {
-        op.responses.insert("200".to_string(), ResponseSpec {
-            description: "HTML Content".to_string(),
-            content: {
-                let mut map = HashMap::new();
-                map.insert("text/html".to_string(), MediaType {
-                    schema: SchemaRef::Inline(serde_json::json!({ "type": "string" })),
-                });
-                Some(map)
+        op.responses.insert(
+            "200".to_string(),
+            ResponseSpec {
+                description: "HTML Content".to_string(),
+                content: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "text/html".to_string(),
+                        MediaType {
+                            schema: SchemaRef::Inline(serde_json::json!({ "type": "string" })),
+                        },
+                    );
+                    Some(map)
+                },
             },
-            ..Default::default()
-        });
+        );
     }
 }
 
@@ -376,10 +402,13 @@ impl ResponseModifier for Redirect {
     fn update_response(op: &mut Operation) {
         // Can be 301, 302, 307. We'll verify what we can generically say.
         // Or we document "3xx"
-        op.responses.insert("3xx".to_string(), ResponseSpec {
-            description: "Redirection".to_string(),
-            ..Default::default()
-        });
+        op.responses.insert(
+            "3xx".to_string(),
+            ResponseSpec {
+                description: "Redirection".to_string(),
+                content: None,
+            },
+        );
     }
 }
 
@@ -417,25 +446,27 @@ impl<T: IntoResponse, const CODE: u16> IntoResponse for WithStatus<T, CODE> {
 impl<T: for<'a> Schema<'a>, const CODE: u16> ResponseModifier for WithStatus<T, CODE> {
     fn update_response(op: &mut Operation) {
         let (name, _) = T::schema();
-        
+
         let schema_ref = SchemaRef::Ref {
             reference: format!("#/components/schemas/{}", name),
         };
-        
-        op.responses.insert(CODE.to_string(), ResponseSpec {
-            description: format!("Response with status {}", CODE),
-            content: {
-                let mut map = HashMap::new();
-                map.insert("application/json".to_string(), MediaType {
-                    schema: schema_ref,
-                });
-                Some(map)
+
+        op.responses.insert(
+            CODE.to_string(),
+            ResponseSpec {
+                description: format!("Response with status {}", CODE),
+                content: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "application/json".to_string(),
+                        MediaType { schema: schema_ref },
+                    );
+                    Some(map)
+                },
             },
-            ..Default::default()
-        });
+        );
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -466,49 +497,49 @@ mod tests {
                 // We need to test with specific const generics, so we'll test a few representative cases
                 // and verify the pattern holds. Since const generics must be known at compile time,
                 // we test the behavior by checking that the status code is correctly applied.
-                
+
                 // Test with 200 OK
                 let response_200: Response = WithStatus::<_, 200>(body.clone()).into_response();
                 prop_assert_eq!(response_200.status().as_u16(), 200);
-                
+
                 // Test with 201 Created
                 let response_201: Response = WithStatus::<_, 201>(body.clone()).into_response();
                 prop_assert_eq!(response_201.status().as_u16(), 201);
-                
+
                 // Test with 202 Accepted
                 let response_202: Response = WithStatus::<_, 202>(body.clone()).into_response();
                 prop_assert_eq!(response_202.status().as_u16(), 202);
-                
+
                 // Test with 204 No Content
                 let response_204: Response = WithStatus::<_, 204>(body.clone()).into_response();
                 prop_assert_eq!(response_204.status().as_u16(), 204);
-                
+
                 // Test with 400 Bad Request
                 let response_400: Response = WithStatus::<_, 400>(body.clone()).into_response();
                 prop_assert_eq!(response_400.status().as_u16(), 400);
-                
+
                 // Test with 404 Not Found
                 let response_404: Response = WithStatus::<_, 404>(body.clone()).into_response();
                 prop_assert_eq!(response_404.status().as_u16(), 404);
-                
+
                 // Test with 418 I'm a teapot
                 let response_418: Response = WithStatus::<_, 418>(body.clone()).into_response();
                 prop_assert_eq!(response_418.status().as_u16(), 418);
-                
+
                 // Test with 500 Internal Server Error
                 let response_500: Response = WithStatus::<_, 500>(body.clone()).into_response();
                 prop_assert_eq!(response_500.status().as_u16(), 500);
-                
+
                 // Test with 503 Service Unavailable
                 let response_503: Response = WithStatus::<_, 503>(body.clone()).into_response();
                 prop_assert_eq!(response_503.status().as_u16(), 503);
-                
+
                 // Verify body is preserved (using a fresh 200 response)
                 let response_for_body: Response = WithStatus::<_, 200>(body.clone()).into_response();
                 let body_bytes = body_to_bytes(response_for_body.into_body()).await;
                 let body_str = String::from_utf8_lossy(&body_bytes);
                 prop_assert_eq!(body_str.as_ref(), body.as_str());
-                
+
                 Ok(())
             })?;
         }
@@ -518,7 +549,7 @@ mod tests {
     async fn test_with_status_preserves_content_type() {
         // Test that WithStatus preserves the content type from the inner response
         let response: Response = WithStatus::<_, 202>("hello world").into_response();
-        
+
         assert_eq!(response.status().as_u16(), 202);
         assert_eq!(
             response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -529,7 +560,7 @@ mod tests {
     #[tokio::test]
     async fn test_with_status_with_empty_body() {
         let response: Response = WithStatus::<_, 204>(()).into_response();
-        
+
         assert_eq!(response.status().as_u16(), 204);
         // Empty body should have zero size
         let body_bytes = body_to_bytes(response.into_body()).await;
@@ -539,19 +570,61 @@ mod tests {
     #[test]
     fn test_with_status_common_codes() {
         // Test common HTTP status codes
-        assert_eq!(WithStatus::<_, 100>("").into_response().status().as_u16(), 100); // Continue
-        assert_eq!(WithStatus::<_, 200>("").into_response().status().as_u16(), 200); // OK
-        assert_eq!(WithStatus::<_, 201>("").into_response().status().as_u16(), 201); // Created
-        assert_eq!(WithStatus::<_, 202>("").into_response().status().as_u16(), 202); // Accepted
-        assert_eq!(WithStatus::<_, 204>("").into_response().status().as_u16(), 204); // No Content
-        assert_eq!(WithStatus::<_, 301>("").into_response().status().as_u16(), 301); // Moved Permanently
-        assert_eq!(WithStatus::<_, 302>("").into_response().status().as_u16(), 302); // Found
-        assert_eq!(WithStatus::<_, 400>("").into_response().status().as_u16(), 400); // Bad Request
-        assert_eq!(WithStatus::<_, 401>("").into_response().status().as_u16(), 401); // Unauthorized
-        assert_eq!(WithStatus::<_, 403>("").into_response().status().as_u16(), 403); // Forbidden
-        assert_eq!(WithStatus::<_, 404>("").into_response().status().as_u16(), 404); // Not Found
-        assert_eq!(WithStatus::<_, 500>("").into_response().status().as_u16(), 500); // Internal Server Error
-        assert_eq!(WithStatus::<_, 502>("").into_response().status().as_u16(), 502); // Bad Gateway
-        assert_eq!(WithStatus::<_, 503>("").into_response().status().as_u16(), 503); // Service Unavailable
+        assert_eq!(
+            WithStatus::<_, 100>("").into_response().status().as_u16(),
+            100
+        ); // Continue
+        assert_eq!(
+            WithStatus::<_, 200>("").into_response().status().as_u16(),
+            200
+        ); // OK
+        assert_eq!(
+            WithStatus::<_, 201>("").into_response().status().as_u16(),
+            201
+        ); // Created
+        assert_eq!(
+            WithStatus::<_, 202>("").into_response().status().as_u16(),
+            202
+        ); // Accepted
+        assert_eq!(
+            WithStatus::<_, 204>("").into_response().status().as_u16(),
+            204
+        ); // No Content
+        assert_eq!(
+            WithStatus::<_, 301>("").into_response().status().as_u16(),
+            301
+        ); // Moved Permanently
+        assert_eq!(
+            WithStatus::<_, 302>("").into_response().status().as_u16(),
+            302
+        ); // Found
+        assert_eq!(
+            WithStatus::<_, 400>("").into_response().status().as_u16(),
+            400
+        ); // Bad Request
+        assert_eq!(
+            WithStatus::<_, 401>("").into_response().status().as_u16(),
+            401
+        ); // Unauthorized
+        assert_eq!(
+            WithStatus::<_, 403>("").into_response().status().as_u16(),
+            403
+        ); // Forbidden
+        assert_eq!(
+            WithStatus::<_, 404>("").into_response().status().as_u16(),
+            404
+        ); // Not Found
+        assert_eq!(
+            WithStatus::<_, 500>("").into_response().status().as_u16(),
+            500
+        ); // Internal Server Error
+        assert_eq!(
+            WithStatus::<_, 502>("").into_response().status().as_u16(),
+            502
+        ); // Bad Gateway
+        assert_eq!(
+            WithStatus::<_, 503>("").into_response().status().as_u16(),
+            503
+        ); // Service Unavailable
     }
 }

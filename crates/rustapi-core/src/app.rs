@@ -360,10 +360,7 @@ impl RustApi {
         // Add Swagger UI endpoint
         let docs_handler = move || {
             let url = openapi_url.clone();
-            async move {
-                let html = rustapi_openapi::swagger_ui_html(&url);
-                html
-            }
+            async move { rustapi_openapi::swagger_ui_html(&url) }
         };
 
         self.route(&openapi_path, get(spec_handler))
@@ -453,32 +450,36 @@ impl RustApi {
         let expected_auth_docs = expected_auth;
 
         // Create spec handler with auth check
-        let spec_handler: crate::handler::BoxedHandler = std::sync::Arc::new(move |req: crate::Request| {
-            let json = spec_json.clone();
-            let expected = expected_auth_spec.clone();
-            Box::pin(async move {
-                if !check_basic_auth(&req, &expected) {
-                    return unauthorized_response();
-                }
-                http::Response::builder()
-                    .status(http::StatusCode::OK)
-                    .header(http::header::CONTENT_TYPE, "application/json")
-                    .body(http_body_util::Full::new(bytes::Bytes::from(json)))
-                    .unwrap()
-            }) as std::pin::Pin<Box<dyn std::future::Future<Output = crate::Response> + Send>>
-        });
+        let spec_handler: crate::handler::BoxedHandler =
+            std::sync::Arc::new(move |req: crate::Request| {
+                let json = spec_json.clone();
+                let expected = expected_auth_spec.clone();
+                Box::pin(async move {
+                    if !check_basic_auth(&req, &expected) {
+                        return unauthorized_response();
+                    }
+                    http::Response::builder()
+                        .status(http::StatusCode::OK)
+                        .header(http::header::CONTENT_TYPE, "application/json")
+                        .body(http_body_util::Full::new(bytes::Bytes::from(json)))
+                        .unwrap()
+                })
+                    as std::pin::Pin<Box<dyn std::future::Future<Output = crate::Response> + Send>>
+            });
 
         // Create docs handler with auth check
-        let docs_handler: crate::handler::BoxedHandler = std::sync::Arc::new(move |req: crate::Request| {
-            let url = openapi_url.clone();
-            let expected = expected_auth_docs.clone();
-            Box::pin(async move {
-                if !check_basic_auth(&req, &expected) {
-                    return unauthorized_response();
-                }
-                rustapi_openapi::swagger_ui_html(&url)
-            }) as std::pin::Pin<Box<dyn std::future::Future<Output = crate::Response> + Send>>
-        });
+        let docs_handler: crate::handler::BoxedHandler =
+            std::sync::Arc::new(move |req: crate::Request| {
+                let url = openapi_url.clone();
+                let expected = expected_auth_docs.clone();
+                Box::pin(async move {
+                    if !check_basic_auth(&req, &expected) {
+                        return unauthorized_response();
+                    }
+                    rustapi_openapi::swagger_ui_html(&url)
+                })
+                    as std::pin::Pin<Box<dyn std::future::Future<Output = crate::Response> + Send>>
+            });
 
         // Create method routers with boxed handlers
         let mut spec_handlers = HashMap::new();
@@ -509,7 +510,7 @@ impl RustApi {
             // Prepend body limit layer so it's the first to process requests
             self.layers.prepend(Box::new(BodyLimitLayer::new(limit)));
         }
-        
+
         let server = Server::new(self.router, self.layers);
         server.run(addr).await
     }
@@ -546,8 +547,13 @@ fn check_basic_auth(req: &crate::Request, expected: &str) -> bool {
 fn unauthorized_response() -> crate::Response {
     http::Response::builder()
         .status(http::StatusCode::UNAUTHORIZED)
-        .header(http::header::WWW_AUTHENTICATE, "Basic realm=\"API Documentation\"")
+        .header(
+            http::header::WWW_AUTHENTICATE,
+            "Basic realm=\"API Documentation\"",
+        )
         .header(http::header::CONTENT_TYPE, "text/plain")
-        .body(http_body_util::Full::new(bytes::Bytes::from("Unauthorized")))
+        .body(http_body_util::Full::new(bytes::Bytes::from(
+            "Unauthorized",
+        )))
         .unwrap()
 }

@@ -16,10 +16,10 @@
 //!     .await
 //! ```
 
+use super::{BoxedNext, MiddlewareLayer};
 use crate::error::ApiError;
 use crate::request::Request;
 use crate::response::{IntoResponse, Response};
-use super::{BoxedNext, MiddlewareLayer};
 use http::StatusCode;
 use std::future::Future;
 use std::pin::Pin;
@@ -164,7 +164,6 @@ mod tests {
             }) as Pin<Box<dyn Future<Output = Response> + Send + 'static>>
         })
     }
-
 
     // **Feature: phase4-ergonomics-v1, Property 3: Body Size Limit Enforcement**
     //

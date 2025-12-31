@@ -59,14 +59,11 @@ impl std::fmt::Display for RequestId {
 /// ```
 impl FromRequestParts for RequestId {
     fn from_request_parts(req: &Request) -> Result<Self> {
-        req.extensions()
-            .get::<RequestId>()
-            .cloned()
-            .ok_or_else(|| {
-                ApiError::internal(
-                    "RequestId not found. Did you forget to add RequestIdLayer middleware?",
-                )
-            })
+        req.extensions().get::<RequestId>().cloned().ok_or_else(|| {
+            ApiError::internal(
+                "RequestId not found. Did you forget to add RequestIdLayer middleware?",
+            )
+        })
     }
 }
 
@@ -99,9 +96,7 @@ impl MiddlewareLayer for RequestIdLayer {
 
             // Add request ID to response headers
             if let Ok(header_value) = request_id.0.parse() {
-                response
-                    .headers_mut()
-                    .insert("x-request-id", header_value);
+                response.headers_mut().insert("x-request-id", header_value);
             }
 
             response
@@ -239,7 +234,7 @@ mod tests {
                 // Process multiple requests through the middleware
                 for _ in 0..num_requests {
                     let ids = collected_ids.clone();
-                    
+
                     // Create a handler that extracts and stores the request ID
                     let handler: BoxedNext = Arc::new(move |req: Request| {
                         let ids = ids.clone();
@@ -248,7 +243,7 @@ mod tests {
                             if let Some(request_id) = req.extensions().get::<RequestId>() {
                                 ids.lock().unwrap().push(request_id.0.clone());
                             }
-                            
+
                             http::Response::builder()
                                 .status(StatusCode::OK)
                                 .body(http_body_util::Full::new(Bytes::from("ok")))
@@ -323,7 +318,11 @@ mod tests {
             // Verify the request ID was extracted
             let id = extracted_id.lock().unwrap();
             assert!(id.is_some(), "Request ID should have been extracted");
-            assert_eq!(id.as_ref().unwrap().len(), 36, "Request ID should be UUID format");
+            assert_eq!(
+                id.as_ref().unwrap().len(),
+                36,
+                "Request ID should be UUID format"
+            );
         });
     }
 
@@ -332,6 +331,9 @@ mod tests {
         // Test that extractor returns error when middleware is not applied
         let request = create_test_request(Method::GET, "/test");
         let result = RequestId::from_request_parts(&request);
-        assert!(result.is_err(), "Should return error when RequestIdLayer is not applied");
+        assert!(
+            result.is_err(),
+            "Should return error when RequestIdLayer is not applied"
+        );
     }
 }

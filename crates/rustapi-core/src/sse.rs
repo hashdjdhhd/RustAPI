@@ -131,6 +131,7 @@ impl SseEvent {
 /// }
 /// ```
 pub struct Sse<S> {
+    #[allow(dead_code)]
     stream: S,
     keep_alive: Option<std::time::Duration>,
 }
@@ -166,7 +167,7 @@ where
         // For the initial implementation, we return a response with SSE headers
         // and an empty body. The actual streaming would require a different body type.
         // This is a placeholder that sets up the correct headers.
-        
+
         // Note: A full implementation would use a streaming body type.
         // For now, we create a response with the correct headers that can be
         // used as a starting point for SSE responses.
@@ -183,7 +184,9 @@ where
 /// Helper function to create an SSE response from an iterator of events
 ///
 /// This is useful for simple cases where you have a fixed set of events.
-pub fn sse_from_iter<I, E>(events: I) -> Sse<futures_util::stream::Iter<std::vec::IntoIter<Result<SseEvent, E>>>>
+pub fn sse_from_iter<I, E>(
+    events: I,
+) -> Sse<futures_util::stream::Iter<std::vec::IntoIter<Result<SseEvent, E>>>>
 where
     I: IntoIterator<Item = Result<SseEvent, E>>,
 {
@@ -239,18 +242,15 @@ mod tests {
 
     #[test]
     fn test_sse_event_full() {
-        let event = SseEvent::new("Hello")
-            .event("message")
-            .id("1")
-            .retry(3000);
+        let event = SseEvent::new("Hello").event("message").id("1").retry(3000);
         let output = event.to_sse_string();
-        
+
         // Check all fields are present
         assert!(output.contains("event: message\n"));
         assert!(output.contains("id: 1\n"));
         assert!(output.contains("retry: 3000\n"));
         assert!(output.contains("data: Hello\n"));
-        
+
         // Check it ends with double newline
         assert!(output.ends_with("\n\n"));
     }
@@ -258,13 +258,12 @@ mod tests {
     #[test]
     fn test_sse_response_headers() {
         use futures_util::stream;
-        
-        let events: Vec<Result<SseEvent, std::convert::Infallible>> = vec![
-            Ok(SseEvent::new("test")),
-        ];
+
+        let events: Vec<Result<SseEvent, std::convert::Infallible>> =
+            vec![Ok(SseEvent::new("test"))];
         let sse = Sse::new(stream::iter(events));
         let response = sse.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -301,7 +300,7 @@ mod tests {
             retry_time in proptest::option::of(1000u64..60000u64),
         ) {
             use futures_util::stream;
-            
+
             // Build the SSE event with optional fields
             let mut event = SseEvent::new(data.clone());
             if let Some(ref et) = event_type {
@@ -313,23 +312,23 @@ mod tests {
             if let Some(retry) = retry_time {
                 event = event.retry(retry);
             }
-            
+
             // Verify the SSE string format
             let sse_string = event.to_sse_string();
-            
+
             // Property 1: SSE string must end with double newline (event terminator)
             prop_assert!(
                 sse_string.ends_with("\n\n"),
                 "SSE event must end with double newline, got: {:?}",
                 sse_string
             );
-            
+
             // Property 2: Data must be present with "data: " prefix
             prop_assert!(
                 sse_string.contains(&format!("data: {}", data)),
                 "SSE event must contain data field with 'data: ' prefix"
             );
-            
+
             // Property 3: If event type is set, it must be present with "event: " prefix
             if let Some(ref et) = event_type {
                 prop_assert!(
@@ -337,7 +336,7 @@ mod tests {
                     "SSE event must contain event type with 'event: ' prefix"
                 );
             }
-            
+
             // Property 4: If ID is set, it must be present with "id: " prefix
             if let Some(ref id) = event_id {
                 prop_assert!(
@@ -345,7 +344,7 @@ mod tests {
                     "SSE event must contain ID with 'id: ' prefix"
                 );
             }
-            
+
             // Property 5: If retry is set, it must be present with "retry: " prefix
             if let Some(retry) = retry_time {
                 prop_assert!(
@@ -353,24 +352,24 @@ mod tests {
                     "SSE event must contain retry with 'retry: ' prefix"
                 );
             }
-            
+
             // Property 6: Verify response headers are correct
             let events: Vec<Result<SseEvent, std::convert::Infallible>> = vec![Ok(event)];
             let sse = Sse::new(stream::iter(events));
             let response = sse.into_response();
-            
+
             prop_assert_eq!(
                 response.headers().get(header::CONTENT_TYPE).map(|v| v.to_str().unwrap()),
                 Some("text/event-stream"),
                 "SSE response must have Content-Type: text/event-stream"
             );
-            
+
             prop_assert_eq!(
                 response.headers().get(header::CACHE_CONTROL).map(|v| v.to_str().unwrap()),
                 Some("no-cache"),
                 "SSE response must have Cache-Control: no-cache"
             );
-            
+
             prop_assert_eq!(
                 response.headers().get(header::CONNECTION).map(|v| v.to_str().unwrap()),
                 Some("keep-alive"),
@@ -386,7 +385,7 @@ mod tests {
             let data = lines.join("\n");
             let event = SseEvent::new(data.clone());
             let sse_string = event.to_sse_string();
-            
+
             // Property: Each line of data must be prefixed with "data: "
             for line in lines.iter() {
                 prop_assert!(
@@ -394,7 +393,7 @@ mod tests {
                     "Each line of multiline data must be prefixed with 'data: '"
                 );
             }
-            
+
             // Property: Must end with double newline
             prop_assert!(
                 sse_string.ends_with("\n\n"),

@@ -118,11 +118,7 @@ impl MiddlewareLayer for TracingLayer {
             }
 
             // Execute the request within the span
-            let response = async {
-                next(req).await
-            }
-            .instrument(span.clone())
-            .await;
+            let response = async { next(req).await }.instrument(span.clone()).await;
 
             let duration = start.elapsed();
             let status = response.status();
@@ -249,15 +245,20 @@ mod tests {
             .with_field("version", "1.0.0");
 
         assert_eq!(layer.custom_fields.len(), 2);
-        assert_eq!(layer.custom_fields[0], ("service".to_string(), "test-api".to_string()));
-        assert_eq!(layer.custom_fields[1], ("version".to_string(), "1.0.0".to_string()));
+        assert_eq!(
+            layer.custom_fields[0],
+            ("service".to_string(), "test-api".to_string())
+        );
+        assert_eq!(
+            layer.custom_fields[1],
+            ("version".to_string(), "1.0.0".to_string())
+        );
     }
 
     #[test]
     fn test_tracing_layer_clone() {
-        let layer = TracingLayer::new()
-            .with_field("key", "value");
-        
+        let layer = TracingLayer::new().with_field("key", "value");
+
         let cloned = layer.clone();
         assert_eq!(cloned.level, layer.level);
         assert_eq!(cloned.custom_fields, layer.custom_fields);
@@ -298,7 +299,9 @@ mod tests {
             _ctx: tracing_subscriber::layer::Context<'_, S>,
         ) {
             let mut fields = HashMap::new();
-            let mut visitor = FieldVisitor { fields: &mut fields };
+            let mut visitor = FieldVisitor {
+                fields: &mut fields,
+            };
             attrs.record(&mut visitor);
 
             let span = CapturedSpan {
@@ -318,7 +321,9 @@ mod tests {
             if let Some(_span) = ctx.span(id) {
                 let mut captured = self.captured_fields.lock().unwrap();
                 if let Some(last_span) = captured.last_mut() {
-                    let mut visitor = FieldVisitor { fields: &mut last_span.fields };
+                    let mut visitor = FieldVisitor {
+                        fields: &mut last_span.fields,
+                    };
                     values.record(&mut visitor);
                 }
             }
@@ -331,23 +336,28 @@ mod tests {
 
     impl<'a> tracing::field::Visit for FieldVisitor<'a> {
         fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-            self.fields.insert(field.name().to_string(), format!("{:?}", value));
+            self.fields
+                .insert(field.name().to_string(), format!("{:?}", value));
         }
 
         fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
-            self.fields.insert(field.name().to_string(), value.to_string());
+            self.fields
+                .insert(field.name().to_string(), value.to_string());
         }
 
         fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
-            self.fields.insert(field.name().to_string(), value.to_string());
+            self.fields
+                .insert(field.name().to_string(), value.to_string());
         }
 
         fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
-            self.fields.insert(field.name().to_string(), value.to_string());
+            self.fields
+                .insert(field.name().to_string(), value.to_string());
         }
 
         fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
-            self.fields.insert(field.name().to_string(), value.to_string());
+            self.fields
+                .insert(field.name().to_string(), value.to_string());
         }
     }
 
@@ -374,7 +384,7 @@ mod tests {
                 // Set up span capture
                 let capture = SpanFieldCapture::new();
                 let subscriber = tracing_subscriber::registry().with(capture.clone());
-                
+
                 // Use a guard to set the subscriber for this test
                 let _guard = tracing::subscriber::set_default(subscriber);
 
@@ -410,7 +420,7 @@ mod tests {
                 // Find the http_request span
                 let spans = capture.get_spans();
                 let http_span = spans.iter().find(|s| s.name == "http_request");
-                
+
                 prop_assert!(http_span.is_some(), "Should have created an http_request span");
                 let span = http_span.unwrap();
 
@@ -518,9 +528,12 @@ mod tests {
             let spans = capture.get_spans();
             let http_span = spans.iter().find(|s| s.name == "http_request");
             assert!(http_span.is_some(), "Should have http_request span");
-            
+
             let span = http_span.unwrap();
-            assert!(span.fields.contains_key("request_id"), "Should have request_id field");
+            assert!(
+                span.fields.contains_key("request_id"),
+                "Should have request_id field"
+            );
         });
     }
 
@@ -552,9 +565,12 @@ mod tests {
             let spans = capture.get_spans();
             let http_span = spans.iter().find(|s| s.name == "http_request");
             assert!(http_span.is_some(), "Should have http_request span");
-            
+
             let span = http_span.unwrap();
-            assert!(span.fields.contains_key("error"), "Should have error field for 5xx response");
+            assert!(
+                span.fields.contains_key("error"),
+                "Should have error field for 5xx response"
+            );
         });
     }
 }

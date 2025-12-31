@@ -55,10 +55,7 @@ impl Server {
                     }
                 });
 
-                if let Err(err) = http1::Builder::new()
-                    .serve_connection(io, service)
-                    .await
-                {
+                if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
                     error!("Connection error: {}", err);
                 }
             });
@@ -84,8 +81,7 @@ async fn handle_request(
     let body_bytes = match body.collect().await {
         Ok(collected) => collected.to_bytes(),
         Err(e) => {
-            return ApiError::bad_request(format!("Failed to read body: {}", e))
-                .into_response();
+            return ApiError::bad_request(format!("Failed to read body: {}", e)).into_response();
         }
     };
 
@@ -107,28 +103,24 @@ async fn handle_request(
             )
             .into_response();
 
-            response.headers_mut().insert(
-                header::ALLOW,
-                allowed_str.join(", ").parse().unwrap(),
-            );
+            response
+                .headers_mut()
+                .insert(header::ALLOW, allowed_str.join(", ").parse().unwrap());
             log_request(&method, &path, response.status(), start);
             return response;
         }
     };
 
     // Build Request
-    let request = Request::new(
-        parts,
-        body_bytes,
-        router.state_ref(),
-        params,
-    );
+    let request = Request::new(parts, body_bytes, router.state_ref(), params);
 
     // Create the final handler as a BoxedNext
     let final_handler: BoxedNext = Arc::new(move |req: Request| {
         let handler = handler.clone();
         Box::pin(async move { handler(req).await })
-            as std::pin::Pin<Box<dyn std::future::Future<Output = crate::response::Response> + Send + 'static>>
+            as std::pin::Pin<
+                Box<dyn std::future::Future<Output = crate::response::Response> + Send + 'static>,
+            >
     });
 
     // Execute through middleware stack
@@ -139,12 +131,7 @@ async fn handle_request(
 }
 
 /// Log request completion
-fn log_request(
-    method: &http::Method,
-    path: &str,
-    status: StatusCode,
-    start: std::time::Instant,
-) {
+fn log_request(method: &http::Method, path: &str, status: StatusCode, start: std::time::Instant) {
     let elapsed = start.elapsed();
 
     if status.is_success() {

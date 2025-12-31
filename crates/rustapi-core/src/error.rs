@@ -67,7 +67,7 @@ use uuid::Uuid;
 pub type Result<T, E = ApiError> = std::result::Result<T, E>;
 
 /// Environment configuration for error handling behavior
-/// 
+///
 /// Controls whether internal error details are exposed in API responses.
 /// In production, internal details are masked to prevent information leakage.
 /// In development, full error details are shown for debugging.
@@ -96,17 +96,17 @@ pub enum Environment {
 
 impl Environment {
     /// Detect environment from `RUSTAPI_ENV` environment variable
-    /// 
+    ///
     /// Returns `Production` if `RUSTAPI_ENV` is set to "production" or "prod" (case-insensitive).
     /// Returns `Development` for all other values or if the variable is not set.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```bash
     /// # Production mode
     /// RUSTAPI_ENV=production cargo run
     /// RUSTAPI_ENV=prod cargo run
-    /// 
+    ///
     /// # Development mode (default)
     /// RUSTAPI_ENV=development cargo run
     /// cargo run  # No env var set
@@ -145,7 +145,7 @@ impl fmt::Display for Environment {
 static ENVIRONMENT: OnceLock<Environment> = OnceLock::new();
 
 /// Get the current environment (cached)
-/// 
+///
 /// This function caches the environment on first call for performance.
 /// The environment is detected from the `RUSTAPI_ENV` environment variable.
 pub fn get_environment() -> Environment {
@@ -153,7 +153,7 @@ pub fn get_environment() -> Environment {
 }
 
 /// Set the environment explicitly (for testing purposes)
-/// 
+///
 /// Note: This only works if the environment hasn't been accessed yet.
 /// Returns `Ok(())` if successful, `Err(env)` if already set.
 #[cfg(test)]
@@ -228,7 +228,11 @@ pub struct FieldError {
 
 impl ApiError {
     /// Create a new API error
-    pub fn new(status: StatusCode, error_type: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn new(
+        status: StatusCode,
+        error_type: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             status,
             error_type: error_type.into(),
@@ -315,17 +319,17 @@ pub struct ErrorBody {
 
 impl ErrorResponse {
     /// Create an ErrorResponse from an ApiError with environment-aware masking
-    /// 
+    ///
     /// In production mode:
     /// - Internal server errors (5xx) show generic messages
     /// - Validation errors always include field details
     /// - Client errors (4xx) show their messages
-    /// 
+    ///
     /// In development mode:
     /// - All error details are shown
     pub fn from_api_error(err: ApiError, env: Environment) -> Self {
         let error_id = generate_error_id();
-        
+
         // Always log the full error details with error_id for correlation
         if err.status.is_server_error() {
             tracing::error!(
@@ -356,7 +360,7 @@ impl ErrorResponse {
                 "Error response generated"
             );
         }
-        
+
         // Determine the message and fields based on environment and error type
         let (message, fields) = if env.is_production() && err.status.is_server_error() {
             // In production, mask internal server error details
@@ -373,7 +377,7 @@ impl ErrorResponse {
             // In development or for non-5xx errors, show full details
             (err.message, err.fields)
         };
-        
+
         Self {
             error: ErrorBody {
                 error_type: err.error_type,
@@ -415,12 +419,16 @@ impl From<hyper::Error> for ApiError {
 
 impl From<rustapi_validate::ValidationError> for ApiError {
     fn from(err: rustapi_validate::ValidationError) -> Self {
-        let fields = err.fields.into_iter().map(|f| FieldError {
-            field: f.field,
-            code: f.code,
-            message: f.message,
-        }).collect();
-        
+        let fields = err
+            .fields
+            .into_iter()
+            .map(|f| FieldError {
+                field: f.field,
+                code: f.code,
+                message: f.message,
+            })
+            .collect();
+
         ApiError::validation(fields)
     }
 }
@@ -433,7 +441,11 @@ impl ApiError {
 
     /// Create a 503 Service Unavailable error
     pub fn service_unavailable(message: impl Into<String>) -> Self {
-        Self::new(StatusCode::SERVICE_UNAVAILABLE, "service_unavailable", message)
+        Self::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "service_unavailable",
+            message,
+        )
     }
 }
 
@@ -455,9 +467,7 @@ impl From<sqlx::Error> for ApiError {
             }
 
             // Row not found → 404
-            sqlx::Error::RowNotFound => {
-                ApiError::not_found("Resource not found")
-            }
+            sqlx::Error::RowNotFound => ApiError::not_found("Resource not found"),
 
             // Database-specific errors need deeper inspection
             sqlx::Error::Database(db_err) => {
@@ -469,14 +479,14 @@ impl From<sqlx::Error> for ApiError {
                         return ApiError::conflict("Resource already exists")
                             .with_internal(db_err.to_string());
                     }
-                    
+
                     // Foreign key violation
                     // PostgreSQL: 23503, MySQL: 1452, SQLite: 787
                     if code_str == "23503" || code_str == "1452" || code_str == "787" {
                         return ApiError::bad_request("Referenced resource does not exist")
                             .with_internal(db_err.to_string());
                     }
-                    
+
                     // Check constraint violation
                     // PostgreSQL: 23514
                     if code_str == "23514" {
@@ -484,73 +494,57 @@ impl From<sqlx::Error> for ApiError {
                             .with_internal(db_err.to_string());
                     }
                 }
-                
+
                 // Generic database error
-                ApiError::internal("Database error")
-                    .with_internal(db_err.to_string())
+                ApiError::internal("Database error").with_internal(db_err.to_string())
             }
 
             // Connection errors → 503
-            sqlx::Error::Io(_) => {
-                ApiError::service_unavailable("Database connection error")
-                    .with_internal(err.to_string())
-            }
+            sqlx::Error::Io(_) => ApiError::service_unavailable("Database connection error")
+                .with_internal(err.to_string()),
 
             // TLS errors → 503
             sqlx::Error::Tls(_) => {
-                ApiError::service_unavailable("Database TLS error")
-                    .with_internal(err.to_string())
+                ApiError::service_unavailable("Database TLS error").with_internal(err.to_string())
             }
 
             // Protocol errors → 500
             sqlx::Error::Protocol(_) => {
-                ApiError::internal("Database protocol error")
-                    .with_internal(err.to_string())
+                ApiError::internal("Database protocol error").with_internal(err.to_string())
             }
 
             // Type/decode errors → 500
             sqlx::Error::TypeNotFound { .. } => {
-                ApiError::internal("Database type error")
-                    .with_internal(err.to_string())
+                ApiError::internal("Database type error").with_internal(err.to_string())
             }
 
             sqlx::Error::ColumnNotFound(_) => {
-                ApiError::internal("Database column not found")
-                    .with_internal(err.to_string())
+                ApiError::internal("Database column not found").with_internal(err.to_string())
             }
 
             sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-                ApiError::internal("Database column index error")
-                    .with_internal(err.to_string())
+                ApiError::internal("Database column index error").with_internal(err.to_string())
             }
 
             sqlx::Error::ColumnDecode { .. } => {
-                ApiError::internal("Database decode error")
-                    .with_internal(err.to_string())
+                ApiError::internal("Database decode error").with_internal(err.to_string())
             }
 
             // Configuration errors → 500
             sqlx::Error::Configuration(_) => {
-                ApiError::internal("Database configuration error")
-                    .with_internal(err.to_string())
+                ApiError::internal("Database configuration error").with_internal(err.to_string())
             }
 
             // Migration errors → 500
             sqlx::Error::Migrate(_) => {
-                ApiError::internal("Database migration error")
-                    .with_internal(err.to_string())
+                ApiError::internal("Database migration error").with_internal(err.to_string())
             }
 
             // Any other errors → 500
-            _ => {
-                ApiError::internal("Database error")
-                    .with_internal(err.to_string())
-            }
+            _ => ApiError::internal("Database error").with_internal(err.to_string()),
         }
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -560,8 +554,8 @@ mod tests {
 
     // **Feature: phase4-ergonomics-v1, Property 6: Error ID Uniqueness**
     //
-    // For any sequence of N errors generated by the system, all N error IDs 
-    // should be unique. The error ID should appear in both the HTTP response 
+    // For any sequence of N errors generated by the system, all N error IDs
+    // should be unique. The error ID should appear in both the HTTP response
     // and the corresponding log entry.
     //
     // **Validates: Requirements 3.3**
@@ -577,19 +571,19 @@ mod tests {
             let error_ids: Vec<String> = (0..num_errors)
                 .map(|_| generate_error_id())
                 .collect();
-            
+
             // Collect into a HashSet to check uniqueness
             let unique_ids: HashSet<&String> = error_ids.iter().collect();
-            
+
             // All IDs should be unique
             prop_assert_eq!(
-                unique_ids.len(), 
+                unique_ids.len(),
                 error_ids.len(),
                 "Generated {} error IDs but only {} were unique",
                 error_ids.len(),
                 unique_ids.len()
             );
-            
+
             // All IDs should follow the format err_{uuid}
             for id in &error_ids {
                 prop_assert!(
@@ -597,7 +591,7 @@ mod tests {
                     "Error ID '{}' does not start with 'err_'",
                     id
                 );
-                
+
                 // The UUID part should be 32 hex characters (simple format)
                 let uuid_part = &id[4..];
                 prop_assert_eq!(
@@ -607,7 +601,7 @@ mod tests {
                     uuid_part,
                     uuid_part.len()
                 );
-                
+
                 // All characters should be valid hex
                 prop_assert!(
                     uuid_part.chars().all(|c| c.is_ascii_hexdigit()),
@@ -634,14 +628,14 @@ mod tests {
         ) {
             let api_error = ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error_type, message);
             let error_response = ErrorResponse::from(api_error);
-            
+
             // error_id should be present and follow format
             prop_assert!(
                 error_response.error_id.starts_with("err_"),
                 "Error ID '{}' does not start with 'err_'",
                 error_response.error_id
             );
-            
+
             let uuid_part = &error_response.error_id[4..];
             prop_assert_eq!(uuid_part.len(), 32);
             prop_assert!(uuid_part.chars().all(|c| c.is_ascii_hexdigit()));
@@ -651,13 +645,13 @@ mod tests {
     #[test]
     fn test_error_id_format() {
         let error_id = generate_error_id();
-        
+
         // Should start with "err_"
         assert!(error_id.starts_with("err_"));
-        
+
         // Total length should be 4 (prefix) + 32 (uuid simple format) = 36
         assert_eq!(error_id.len(), 36);
-        
+
         // UUID part should be valid hex
         let uuid_part = &error_id[4..];
         assert!(uuid_part.chars().all(|c| c.is_ascii_hexdigit()));
@@ -667,7 +661,7 @@ mod tests {
     fn test_error_response_includes_error_id() {
         let api_error = ApiError::bad_request("test error");
         let error_response = ErrorResponse::from(api_error);
-        
+
         // error_id should be present
         assert!(error_response.error_id.starts_with("err_"));
         assert_eq!(error_response.error_id.len(), 36);
@@ -677,9 +671,9 @@ mod tests {
     fn test_error_id_in_json_serialization() {
         let api_error = ApiError::internal("test error");
         let error_response = ErrorResponse::from(api_error);
-        
+
         let json = serde_json::to_string(&error_response).unwrap();
-        
+
         // JSON should contain error_id field
         assert!(json.contains("\"error_id\":"));
         assert!(json.contains("err_"));
@@ -689,7 +683,7 @@ mod tests {
     fn test_multiple_error_ids_are_unique() {
         let ids: Vec<String> = (0..1000).map(|_| generate_error_id()).collect();
         let unique: HashSet<_> = ids.iter().collect();
-        
+
         assert_eq!(ids.len(), unique.len(), "All error IDs should be unique");
     }
 
@@ -718,10 +712,10 @@ mod tests {
                 "internal_error",
                 sensitive_message.clone()
             ).with_internal(internal_details.clone());
-            
+
             // Convert to ErrorResponse in production mode
             let error_response = ErrorResponse::from_api_error(api_error, Environment::Production);
-            
+
             // The message should be masked to a generic message
             prop_assert_eq!(
                 &error_response.error.message,
@@ -729,7 +723,7 @@ mod tests {
                 "Production 5xx error should have masked message, got: {}",
                 &error_response.error.message
             );
-            
+
             // The original sensitive message should NOT appear in the response
             // (only check if the message is long enough to be meaningful)
             if sensitive_message.len() >= 10 {
@@ -738,7 +732,7 @@ mod tests {
                     "Production error response should not contain original message"
                 );
             }
-            
+
             // Internal details should NOT appear anywhere in the serialized response
             let json = serde_json::to_string(&error_response).unwrap();
             if internal_details.len() >= 10 {
@@ -747,7 +741,7 @@ mod tests {
                     "Production error response should not contain internal details"
                 );
             }
-            
+
             // Error ID should still be present
             prop_assert!(
                 error_response.error_id.starts_with("err_"),
@@ -780,24 +774,24 @@ mod tests {
                 error_type.clone(),
                 error_message.clone()
             );
-            
+
             // Convert to ErrorResponse in development mode
             let error_response = ErrorResponse::from_api_error(api_error, Environment::Development);
-            
+
             // The original message should be preserved
             prop_assert_eq!(
                 error_response.error.message,
                 error_message,
                 "Development error should preserve original message"
             );
-            
+
             // The error type should be preserved
             prop_assert_eq!(
                 error_response.error.error_type,
                 error_type,
                 "Development error should preserve error type"
             );
-            
+
             // Error ID should be present
             prop_assert!(
                 error_response.error_id.starts_with("err_"),
@@ -830,7 +824,7 @@ mod tests {
             } else {
                 Environment::Development
             };
-            
+
             // Create a validation error with field details
             let field_error = FieldError {
                 field: field_name.clone(),
@@ -838,26 +832,26 @@ mod tests {
                 message: field_message.clone(),
             };
             let api_error = ApiError::validation(vec![field_error]);
-            
+
             // Convert to ErrorResponse
             let error_response = ErrorResponse::from_api_error(api_error, env);
-            
+
             // Fields should always be present for validation errors
             prop_assert!(
                 error_response.error.fields.is_some(),
                 "Validation error should always include fields in {} mode",
                 env
             );
-            
+
             let fields = error_response.error.fields.as_ref().unwrap();
             prop_assert_eq!(
                 fields.len(),
                 1,
                 "Should have exactly one field error"
             );
-            
+
             let field = &fields[0];
-            
+
             // Field name should be preserved
             prop_assert_eq!(
                 &field.field,
@@ -865,7 +859,7 @@ mod tests {
                 "Field name should be preserved in {} mode",
                 env
             );
-            
+
             // Field code should be preserved
             prop_assert_eq!(
                 &field.code,
@@ -873,7 +867,7 @@ mod tests {
                 "Field code should be preserved in {} mode",
                 env
             );
-            
+
             // Field message should be preserved
             prop_assert_eq!(
                 &field.message,
@@ -881,7 +875,7 @@ mod tests {
                 "Field message should be preserved in {} mode",
                 env
             );
-            
+
             // Verify JSON serialization includes all field details
             let json = serde_json::to_string(&error_response).unwrap();
             prop_assert!(
@@ -906,12 +900,12 @@ mod tests {
     // Note: These tests verify the Environment::from_env() logic by testing the parsing
     // directly rather than modifying global environment variables (which causes race conditions
     // in parallel test execution).
-    
+
     #[test]
     fn test_environment_from_env_production() {
         // Test the parsing logic directly by simulating what from_env() does
         // This avoids race conditions with parallel tests
-        
+
         // Test "production" variants
         assert!(matches!(
             match "production".to_lowercase().as_str() {
@@ -920,7 +914,7 @@ mod tests {
             },
             Environment::Production
         ));
-        
+
         assert!(matches!(
             match "prod".to_lowercase().as_str() {
                 "production" | "prod" => Environment::Production,
@@ -928,7 +922,7 @@ mod tests {
             },
             Environment::Production
         ));
-        
+
         assert!(matches!(
             match "PRODUCTION".to_lowercase().as_str() {
                 "production" | "prod" => Environment::Production,
@@ -936,7 +930,7 @@ mod tests {
             },
             Environment::Production
         ));
-        
+
         assert!(matches!(
             match "PROD".to_lowercase().as_str() {
                 "production" | "prod" => Environment::Production,
@@ -950,7 +944,7 @@ mod tests {
     fn test_environment_from_env_development() {
         // Test the parsing logic directly by simulating what from_env() does
         // This avoids race conditions with parallel tests
-        
+
         // Test "development" and other variants that should default to Development
         assert!(matches!(
             match "development".to_lowercase().as_str() {
@@ -959,7 +953,7 @@ mod tests {
             },
             Environment::Development
         ));
-        
+
         assert!(matches!(
             match "dev".to_lowercase().as_str() {
                 "production" | "prod" => Environment::Production,
@@ -967,7 +961,7 @@ mod tests {
             },
             Environment::Development
         ));
-        
+
         assert!(matches!(
             match "test".to_lowercase().as_str() {
                 "production" | "prod" => Environment::Production,
@@ -975,7 +969,7 @@ mod tests {
             },
             Environment::Development
         ));
-        
+
         assert!(matches!(
             match "anything_else".to_lowercase().as_str() {
                 "production" | "prod" => Environment::Production,
@@ -1007,9 +1001,10 @@ mod tests {
 
     #[test]
     fn test_production_masks_5xx_errors() {
-        let error = ApiError::internal("Sensitive database connection string: postgres://user:pass@host");
+        let error =
+            ApiError::internal("Sensitive database connection string: postgres://user:pass@host");
         let response = ErrorResponse::from_api_error(error, Environment::Production);
-        
+
         assert_eq!(response.error.message, "An internal error occurred");
         assert!(!response.error.message.contains("postgres"));
     }
@@ -1018,7 +1013,7 @@ mod tests {
     fn test_production_shows_4xx_errors() {
         let error = ApiError::bad_request("Invalid email format");
         let response = ErrorResponse::from_api_error(error, Environment::Production);
-        
+
         // 4xx errors should show their message even in production
         assert_eq!(response.error.message, "Invalid email format");
     }
@@ -1027,8 +1022,11 @@ mod tests {
     fn test_development_shows_all_errors() {
         let error = ApiError::internal("Detailed error: connection refused to 192.168.1.1:5432");
         let response = ErrorResponse::from_api_error(error, Environment::Development);
-        
-        assert_eq!(response.error.message, "Detailed error: connection refused to 192.168.1.1:5432");
+
+        assert_eq!(
+            response.error.message,
+            "Detailed error: connection refused to 192.168.1.1:5432"
+        );
     }
 
     #[test]
@@ -1045,9 +1043,9 @@ mod tests {
                 message: "Must be at least 18".to_string(),
             },
         ];
-        
+
         let error = ApiError::validation(fields.clone());
-        
+
         // Test in production
         let prod_response = ErrorResponse::from_api_error(error.clone(), Environment::Production);
         assert!(prod_response.error.fields.is_some());
@@ -1055,7 +1053,7 @@ mod tests {
         assert_eq!(prod_fields.len(), 2);
         assert_eq!(prod_fields[0].field, "email");
         assert_eq!(prod_fields[1].field, "age");
-        
+
         // Test in development
         let dev_response = ErrorResponse::from_api_error(error, Environment::Development);
         assert!(dev_response.error.fields.is_some());

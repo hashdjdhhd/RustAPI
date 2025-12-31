@@ -65,13 +65,11 @@ impl ValidationErrorSchema {
             error: ValidationErrorBodySchema {
                 error_type: "validation_error".to_string(),
                 message: "Request validation failed".to_string(),
-                fields: vec![
-                    FieldErrorSchema {
-                        field: "email".to_string(),
-                        code: "email".to_string(),
-                        message: "Invalid email format".to_string(),
-                    },
-                ],
+                fields: vec![FieldErrorSchema {
+                    field: "email".to_string(),
+                    code: "email".to_string(),
+                    message: "Invalid email format".to_string(),
+                }],
             },
         }
     }
@@ -89,7 +87,7 @@ impl ErrorSchema {
             request_id: None,
         }
     }
-    
+
     /// Create a sample internal error
     pub fn internal_error_example() -> Self {
         Self {
@@ -101,7 +99,7 @@ impl ErrorSchema {
             request_id: None,
         }
     }
-    
+
     /// Create a sample bad request error
     pub fn bad_request_example() -> Self {
         Self {

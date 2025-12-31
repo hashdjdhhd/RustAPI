@@ -111,7 +111,9 @@ async fn health() -> &'static str {
 #[rustapi_rs::tag("Authentication")]
 #[rustapi_rs::summary("Login")]
 #[rustapi_rs::description("Authenticate with username and password to receive a JWT token.")]
-async fn login(ValidatedJson(body): ValidatedJson<LoginRequest>) -> Result<Json<LoginResponse>, ApiError> {
+async fn login(
+    ValidatedJson(body): ValidatedJson<LoginRequest>,
+) -> Result<Json<LoginResponse>, ApiError> {
     // In production, verify credentials against database
     // For demo, accept admin/secret
     if body.username != "admin" || body.password != "secret" {
@@ -143,7 +145,6 @@ async fn login(ValidatedJson(body): ValidatedJson<LoginRequest>) -> Result<Json<
         expires_in: TOKEN_EXPIRY_SECS,
     }))
 }
-
 
 // ============================================
 // Protected Handlers (Auth Required)
@@ -209,8 +210,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Rate limiting: 100 requests per minute
         .layer(RateLimitLayer::new(100, Duration::from_secs(60)))
         // JWT middleware - skip public paths (docs has its own auth)
-        .layer(JwtLayer::<Claims>::new(JWT_SECRET)
-            .skip_paths(vec!["/health", "/docs", "/auth/login", "/"]))
+        .layer(JwtLayer::<Claims>::new(JWT_SECRET).skip_paths(vec![
+            "/health",
+            "/docs",
+            "/auth/login",
+            "/",
+        ]))
         .register_schema::<LoginRequest>()
         .register_schema::<LoginResponse>()
         .register_schema::<UserProfile>()

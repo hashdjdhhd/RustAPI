@@ -114,10 +114,7 @@ async fn list_users(State(pool): State<Arc<DbPool>>) -> Result<Json<UsersRespons
 }
 
 /// Get a user by ID
-async fn get_user(
-    State(pool): State<Arc<DbPool>>,
-    Path(id): Path<i64>,
-) -> Result<Json<User>> {
+async fn get_user(State(pool): State<Arc<DbPool>>, Path(id): Path<i64>) -> Result<Json<User>> {
     let user = sqlx::query_as::<_, User>("SELECT id, name, email FROM users WHERE id = ?")
         .bind(id)
         .fetch_one(pool.as_ref())
@@ -177,10 +174,7 @@ async fn update_user(
 }
 
 /// Delete a user
-async fn delete_user(
-    State(pool): State<Arc<DbPool>>,
-    Path(id): Path<i64>,
-) -> Result<NoContent> {
+async fn delete_user(State(pool): State<Arc<DbPool>>, Path(id): Path<i64>) -> Result<NoContent> {
     // Check if user exists first
     sqlx::query_as::<_, User>("SELECT id, name, email FROM users WHERE id = ?")
         .bind(id)
@@ -198,7 +192,7 @@ async fn delete_user(
 }
 
 /// Create multiple users in a transaction
-/// 
+///
 /// This demonstrates transaction handling - if any insert fails,
 /// all inserts are rolled back.
 async fn batch_create_users(
@@ -246,10 +240,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Create an in-memory SQLite database
     // In production, use a connection string like "sqlite:./data.db"
     let pool = SqlitePool::connect("sqlite::memory:").await?;
-    
+
     // Initialize the database schema
     init_db(&pool).await?;
-    
+
     // Wrap pool in Arc for sharing across handlers
     let pool = Arc::new(pool);
 

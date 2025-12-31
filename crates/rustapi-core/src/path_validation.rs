@@ -18,13 +18,25 @@ pub enum PathValidationError {
     /// Empty parameter name
     EmptyParameterName { path: String, position: usize },
     /// Invalid parameter name (contains invalid characters)
-    InvalidParameterName { path: String, param_name: String, position: usize },
+    InvalidParameterName {
+        path: String,
+        param_name: String,
+        position: usize,
+    },
     /// Parameter name starts with digit
-    ParameterStartsWithDigit { path: String, param_name: String, position: usize },
+    ParameterStartsWithDigit {
+        path: String,
+        param_name: String,
+        position: usize,
+    },
     /// Unclosed brace
     UnclosedBrace { path: String },
     /// Invalid character in path
-    InvalidCharacter { path: String, character: char, position: usize },
+    InvalidCharacter {
+        path: String,
+        character: char,
+        position: usize,
+    },
 }
 
 impl std::fmt::Display for PathValidationError {
@@ -34,28 +46,68 @@ impl std::fmt::Display for PathValidationError {
                 write!(f, "route path must start with '/', got: \"{}\"", path)
             }
             PathValidationError::EmptySegment { path } => {
-                write!(f, "route path contains empty segment (double slash): \"{}\"", path)
+                write!(
+                    f,
+                    "route path contains empty segment (double slash): \"{}\"",
+                    path
+                )
             }
             PathValidationError::NestedBraces { path, position } => {
-                write!(f, "nested braces are not allowed in route path at position {}: \"{}\"", position, path)
+                write!(
+                    f,
+                    "nested braces are not allowed in route path at position {}: \"{}\"",
+                    position, path
+                )
             }
             PathValidationError::UnmatchedClosingBrace { path, position } => {
-                write!(f, "unmatched closing brace '}}' at position {} in route path: \"{}\"", position, path)
+                write!(
+                    f,
+                    "unmatched closing brace '}}' at position {} in route path: \"{}\"",
+                    position, path
+                )
             }
             PathValidationError::EmptyParameterName { path, position } => {
-                write!(f, "empty parameter name '{{}}' at position {} in route path: \"{}\"", position, path)
+                write!(
+                    f,
+                    "empty parameter name '{{}}' at position {} in route path: \"{}\"",
+                    position, path
+                )
             }
-            PathValidationError::InvalidParameterName { path, param_name, position } => {
+            PathValidationError::InvalidParameterName {
+                path,
+                param_name,
+                position,
+            } => {
                 write!(f, "invalid parameter name '{{{}}}' at position {} - parameter names must contain only alphanumeric characters and underscores: \"{}\"", param_name, position, path)
             }
-            PathValidationError::ParameterStartsWithDigit { path, param_name, position } => {
-                write!(f, "parameter name '{{{}}}' cannot start with a digit at position {}: \"{}\"", param_name, position, path)
+            PathValidationError::ParameterStartsWithDigit {
+                path,
+                param_name,
+                position,
+            } => {
+                write!(
+                    f,
+                    "parameter name '{{{}}}' cannot start with a digit at position {}: \"{}\"",
+                    param_name, position, path
+                )
             }
             PathValidationError::UnclosedBrace { path } => {
-                write!(f, "unclosed brace '{{' in route path (missing closing '}}'): \"{}\"", path)
+                write!(
+                    f,
+                    "unclosed brace '{{' in route path (missing closing '}}'): \"{}\"",
+                    path
+                )
             }
-            PathValidationError::InvalidCharacter { path, character, position } => {
-                write!(f, "invalid character '{}' at position {} in route path: \"{}\"", character, position, path)
+            PathValidationError::InvalidCharacter {
+                path,
+                character,
+                position,
+            } => {
+                write!(
+                    f,
+                    "invalid character '{}' at position {} in route path: \"{}\"",
+                    character, position, path
+                )
             }
         }
     }
@@ -64,15 +116,15 @@ impl std::fmt::Display for PathValidationError {
 impl std::error::Error for PathValidationError {}
 
 /// Validate route path syntax
-/// 
+///
 /// Returns Ok(()) if the path is valid, or Err with a descriptive error.
-/// 
+///
 /// # Valid paths
 /// - Must start with '/'
 /// - Can contain alphanumeric characters, '-', '_', '.', '/'
 /// - Can contain path parameters in the form `{param_name}`
 /// - Parameter names must be valid identifiers (alphanumeric + underscore, not starting with digit)
-/// 
+///
 /// # Invalid paths
 /// - Paths not starting with '/'
 /// - Paths with empty segments (double slashes like '//')
@@ -80,18 +132,18 @@ impl std::error::Error for PathValidationError {}
 /// - Paths with empty parameter names like '{}'
 /// - Paths with invalid parameter names
 /// - Paths with invalid characters
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use rustapi_core::path_validation::validate_path;
-/// 
+///
 /// // Valid paths
 /// assert!(validate_path("/").is_ok());
 /// assert!(validate_path("/users").is_ok());
 /// assert!(validate_path("/users/{id}").is_ok());
 /// assert!(validate_path("/users/{user_id}/posts/{post_id}").is_ok());
-/// 
+///
 /// // Invalid paths
 /// assert!(validate_path("users").is_err()); // Missing leading /
 /// assert!(validate_path("/users//posts").is_err()); // Double slash
@@ -157,7 +209,12 @@ pub fn validate_path(path: &str) -> Result<(), PathValidationError> {
                         });
                     }
                     // Parameter name must not start with a digit
-                    if param_name.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                    if param_name
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                    {
                         return Err(PathValidationError::ParameterStartsWithDigit {
                             path: path.to_string(),
                             param_name: param_name.to_string(),
@@ -221,88 +278,148 @@ mod tests {
     #[test]
     fn test_missing_leading_slash() {
         let result = validate_path("users");
-        assert!(matches!(result, Err(PathValidationError::MustStartWithSlash { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::MustStartWithSlash { .. })
+        ));
+
         let result = validate_path("users/{id}");
-        assert!(matches!(result, Err(PathValidationError::MustStartWithSlash { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::MustStartWithSlash { .. })
+        ));
     }
 
     #[test]
     fn test_double_slash() {
         let result = validate_path("/users//posts");
-        assert!(matches!(result, Err(PathValidationError::EmptySegment { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::EmptySegment { .. })
+        ));
+
         let result = validate_path("//users");
-        assert!(matches!(result, Err(PathValidationError::EmptySegment { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::EmptySegment { .. })
+        ));
     }
 
     #[test]
     fn test_unclosed_brace() {
         let result = validate_path("/users/{id");
-        assert!(matches!(result, Err(PathValidationError::UnclosedBrace { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::UnclosedBrace { .. })
+        ));
+
         let result = validate_path("/users/{");
-        assert!(matches!(result, Err(PathValidationError::UnclosedBrace { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::UnclosedBrace { .. })
+        ));
     }
 
     #[test]
     fn test_unmatched_closing_brace() {
         let result = validate_path("/users/id}");
-        assert!(matches!(result, Err(PathValidationError::UnmatchedClosingBrace { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::UnmatchedClosingBrace { .. })
+        ));
+
         let result = validate_path("/users/}");
-        assert!(matches!(result, Err(PathValidationError::UnmatchedClosingBrace { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::UnmatchedClosingBrace { .. })
+        ));
     }
 
     #[test]
     fn test_empty_parameter_name() {
         let result = validate_path("/users/{}");
-        assert!(matches!(result, Err(PathValidationError::EmptyParameterName { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::EmptyParameterName { .. })
+        ));
+
         let result = validate_path("/users/{}/posts");
-        assert!(matches!(result, Err(PathValidationError::EmptyParameterName { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::EmptyParameterName { .. })
+        ));
     }
 
     #[test]
     fn test_nested_braces() {
         let result = validate_path("/users/{{id}}");
-        assert!(matches!(result, Err(PathValidationError::NestedBraces { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::NestedBraces { .. })
+        ));
+
         let result = validate_path("/users/{outer{inner}}");
-        assert!(matches!(result, Err(PathValidationError::NestedBraces { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::NestedBraces { .. })
+        ));
     }
 
     #[test]
     fn test_parameter_starts_with_digit() {
         let result = validate_path("/users/{123}");
-        assert!(matches!(result, Err(PathValidationError::ParameterStartsWithDigit { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::ParameterStartsWithDigit { .. })
+        ));
+
         let result = validate_path("/users/{1id}");
-        assert!(matches!(result, Err(PathValidationError::ParameterStartsWithDigit { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::ParameterStartsWithDigit { .. })
+        ));
     }
 
     #[test]
     fn test_invalid_parameter_name() {
         let result = validate_path("/users/{id-name}");
-        assert!(matches!(result, Err(PathValidationError::InvalidParameterName { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::InvalidParameterName { .. })
+        ));
+
         let result = validate_path("/users/{id.name}");
-        assert!(matches!(result, Err(PathValidationError::InvalidParameterName { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::InvalidParameterName { .. })
+        ));
+
         let result = validate_path("/users/{id name}");
-        assert!(matches!(result, Err(PathValidationError::InvalidParameterName { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::InvalidParameterName { .. })
+        ));
     }
 
     #[test]
     fn test_invalid_characters() {
         let result = validate_path("/users?query");
-        assert!(matches!(result, Err(PathValidationError::InvalidCharacter { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::InvalidCharacter { .. })
+        ));
+
         let result = validate_path("/users#anchor");
-        assert!(matches!(result, Err(PathValidationError::InvalidCharacter { .. })));
-        
+        assert!(matches!(
+            result,
+            Err(PathValidationError::InvalidCharacter { .. })
+        ));
+
         let result = validate_path("/users@domain");
-        assert!(matches!(result, Err(PathValidationError::InvalidCharacter { .. })));
+        assert!(matches!(
+            result,
+            Err(PathValidationError::InvalidCharacter { .. })
+        ));
     }
 
     // **Feature: phase4-ergonomics-v1, Property 2: Invalid Path Syntax Rejection**
@@ -315,12 +432,12 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(100))]
 
         /// Property: Valid paths are accepted
-        /// 
+        ///
         /// For any path that follows the valid path structure:
         /// - Starts with /
         /// - Contains only valid segments (alphanumeric, -, _, .)
         /// - Has properly formed parameters {name} where name is a valid identifier
-        /// 
+        ///
         /// The validation should succeed.
         #[test]
         fn prop_valid_paths_accepted(
@@ -331,14 +448,14 @@ mod tests {
         ) {
             // Build a valid path from segments and parameters
             let mut path = String::from("/");
-            
+
             for (i, segment) in segments.iter().enumerate() {
                 if i > 0 {
                     path.push('/');
                 }
                 path.push_str(segment);
             }
-            
+
             // Add parameters at the end (only if we have segments or it's the root)
             for param in params.iter() {
                 if path != "/" {
@@ -348,7 +465,7 @@ mod tests {
                 path.push_str(param);
                 path.push('}');
             }
-            
+
             // If path is just "/", that's valid
             // Otherwise ensure we have a valid structure
             let result = validate_path(&path);
@@ -361,7 +478,7 @@ mod tests {
         }
 
         /// Property: Paths without leading slash are rejected
-        /// 
+        ///
         /// For any path that doesn't start with '/', validation should fail
         /// with MustStartWithSlash error.
         #[test]
@@ -375,7 +492,7 @@ mod tests {
             } else {
                 content
             };
-            
+
             let result = validate_path(&path);
             prop_assert!(
                 matches!(result, Err(PathValidationError::MustStartWithSlash { .. })),
@@ -386,7 +503,7 @@ mod tests {
         }
 
         /// Property: Paths with unclosed braces are rejected
-        /// 
+        ///
         /// For any path containing an unclosed '{', validation should fail.
         #[test]
         fn prop_unclosed_brace_rejected(
@@ -396,7 +513,7 @@ mod tests {
         ) {
             // Create a path with an unclosed brace
             let path = format!("{}/{{{}", prefix, param_start);
-            
+
             let result = validate_path(&path);
             prop_assert!(
                 matches!(result, Err(PathValidationError::UnclosedBrace { .. })),
@@ -407,7 +524,7 @@ mod tests {
         }
 
         /// Property: Paths with unmatched closing braces are rejected
-        /// 
+        ///
         /// For any path containing a '}' without a matching '{', validation should fail.
         #[test]
         fn prop_unmatched_closing_brace_rejected(
@@ -417,7 +534,7 @@ mod tests {
         ) {
             // Create a path with an unmatched closing brace
             let path = format!("{}/{}}}", prefix, suffix);
-            
+
             let result = validate_path(&path);
             prop_assert!(
                 matches!(result, Err(PathValidationError::UnmatchedClosingBrace { .. })),
@@ -428,7 +545,7 @@ mod tests {
         }
 
         /// Property: Paths with empty parameter names are rejected
-        /// 
+        ///
         /// For any path containing '{}', validation should fail with EmptyParameterName.
         #[test]
         fn prop_empty_parameter_rejected(
@@ -444,7 +561,7 @@ mod tests {
                 String::new()
             };
             let path = format!("{}/{{}}{}", prefix, suffix);
-            
+
             let result = validate_path(&path);
             prop_assert!(
                 matches!(result, Err(PathValidationError::EmptyParameterName { .. })),
@@ -455,7 +572,7 @@ mod tests {
         }
 
         /// Property: Paths with parameters starting with digits are rejected
-        /// 
+        ///
         /// For any path containing a parameter that starts with a digit,
         /// validation should fail with ParameterStartsWithDigit.
         #[test]
@@ -467,7 +584,7 @@ mod tests {
         ) {
             // Create a path with a parameter starting with a digit
             let path = format!("{}/{{{}{}}}", prefix, digit, rest);
-            
+
             let result = validate_path(&path);
             prop_assert!(
                 matches!(result, Err(PathValidationError::ParameterStartsWithDigit { .. })),
@@ -478,7 +595,7 @@ mod tests {
         }
 
         /// Property: Paths with double slashes are rejected
-        /// 
+        ///
         /// For any path containing '//', validation should fail with EmptySegment.
         #[test]
         fn prop_double_slash_rejected(
@@ -487,7 +604,7 @@ mod tests {
         ) {
             // Create a path with double slash
             let path = format!("{}//{}", prefix, suffix);
-            
+
             let result = validate_path(&path);
             prop_assert!(
                 matches!(result, Err(PathValidationError::EmptySegment { .. })),
@@ -498,7 +615,7 @@ mod tests {
         }
 
         /// Property: Error messages contain the original path
-        /// 
+        ///
         /// For any invalid path, the error message should contain the original path
         /// for debugging purposes.
         #[test]
@@ -515,7 +632,7 @@ mod tests {
                 4 => format!("/{}/{{1{content}}}", content = content), // Parameter starts with digit
                 _ => content.clone(),
             };
-            
+
             let result = validate_path(&path);
             if let Err(err) = result {
                 let error_message = err.to_string();

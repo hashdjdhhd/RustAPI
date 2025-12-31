@@ -67,7 +67,9 @@ pub use rustapi_macros::*;
 #[cfg(feature = "jwt")]
 pub use rustapi_extras::jwt;
 #[cfg(feature = "jwt")]
-pub use rustapi_extras::{create_token, AuthUser, JwtError, JwtLayer, JwtValidation, ValidatedClaims};
+pub use rustapi_extras::{
+    create_token, AuthUser, JwtError, JwtLayer, JwtValidation, ValidatedClaims,
+};
 
 #[cfg(feature = "cors")]
 pub use rustapi_extras::cors;
@@ -82,7 +84,9 @@ pub use rustapi_extras::RateLimitLayer;
 #[cfg(feature = "config")]
 pub use rustapi_extras::config;
 #[cfg(feature = "config")]
-pub use rustapi_extras::{env_or, env_parse, load_dotenv, load_dotenv_from, require_env, Config, ConfigError, Environment};
+pub use rustapi_extras::{
+    env_or, env_parse, load_dotenv, load_dotenv_from, require_env, Config, ConfigError, Environment,
+};
 
 #[cfg(feature = "sqlx")]
 pub use rustapi_extras::sqlx;
@@ -93,29 +97,54 @@ pub use rustapi_extras::{convert_sqlx_error, SqlxErrorExt};
 pub mod prelude {
     // Core types
     pub use rustapi_core::{
-        // App builder
-        RustApi,
-        // Router
-        Router,
-        get, post, put, patch, delete,
-        // Route type for macro-based routing
-        Route,
-        get_route, post_route, put_route, patch_route, delete_route,
-        // Extractors
-        Json, Query, Path, State, Body,
-        ValidatedJson,
-        Headers, HeaderValue, ClientIp, Extension,
-        // Response types
-        IntoResponse, Response,
-        Created, NoContent, Html, Redirect, WithStatus,
-        // Streaming responses
-        Sse, SseEvent, StreamBody,
+        delete,
+        delete_route,
+        get,
+        get_route,
+        patch,
+        patch_route,
+        post,
+        post_route,
+        put,
+        put_route,
         // Error handling
-        ApiError, Result,
+        ApiError,
+        Body,
+        ClientIp,
+        Created,
+        Extension,
+        HeaderValue,
+        Headers,
+        Html,
+        // Response types
+        IntoResponse,
+        // Extractors
+        Json,
+        NoContent,
+        Path,
+        Query,
+        Redirect,
         // Request context
         Request,
         // Middleware
-        RequestId, RequestIdLayer, TracingLayer,
+        RequestId,
+        RequestIdLayer,
+        Response,
+        Result,
+        // Route type for macro-based routing
+        Route,
+        // Router
+        Router,
+        // App builder
+        RustApi,
+        // Streaming responses
+        Sse,
+        SseEvent,
+        State,
+        StreamBody,
+        TracingLayer,
+        ValidatedJson,
+        WithStatus,
     };
 
     // Cookies extractor (feature-gated in core)
@@ -127,9 +156,9 @@ pub mod prelude {
 
     // Re-export validation - use validator derive macro directly
     pub use validator::Validate;
-    
+
     // Re-export OpenAPI schema derive
-    pub use rustapi_openapi::{Schema, IntoParams};
+    pub use rustapi_openapi::{IntoParams, Schema};
 
     // Re-export commonly used external types
     pub use serde::{Deserialize, Serialize};
@@ -137,11 +166,13 @@ pub mod prelude {
 
     // JWT types (feature-gated)
     #[cfg(feature = "jwt")]
-    pub use rustapi_extras::{AuthUser, JwtLayer, JwtValidation, JwtError, ValidatedClaims, create_token};
+    pub use rustapi_extras::{
+        create_token, AuthUser, JwtError, JwtLayer, JwtValidation, ValidatedClaims,
+    };
 
     // CORS types (feature-gated)
     #[cfg(feature = "cors")]
-    pub use rustapi_extras::{CorsLayer, AllowedOrigins};
+    pub use rustapi_extras::{AllowedOrigins, CorsLayer};
 
     // Rate limiting types (feature-gated)
     #[cfg(feature = "rate-limit")]
@@ -149,7 +180,10 @@ pub mod prelude {
 
     // Configuration types (feature-gated)
     #[cfg(feature = "config")]
-    pub use rustapi_extras::{Config, Environment, ConfigError, load_dotenv, load_dotenv_from, env_or, env_parse, require_env};
+    pub use rustapi_extras::{
+        env_or, env_parse, load_dotenv, load_dotenv_from, require_env, Config, ConfigError,
+        Environment,
+    };
 
     // SQLx types (feature-gated)
     #[cfg(feature = "sqlx")]

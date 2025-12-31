@@ -35,7 +35,7 @@ fn debug_output(name: &str, tokens: &proc_macro2::TokenStream) {
 }
 
 /// Validate route path syntax at compile time
-/// 
+///
 /// Returns Ok(()) if the path is valid, or Err with a descriptive error message.
 fn validate_path_syntax(path: &str, span: proc_macro2::Span) -> Result<(), syn::Error> {
     // Path must start with /
@@ -50,7 +50,10 @@ fn validate_path_syntax(path: &str, span: proc_macro2::Span) -> Result<(), syn::
     if path.contains("//") {
         return Err(syn::Error::new(
             span,
-            format!("route path contains empty segment (double slash): \"{}\"", path),
+            format!(
+                "route path contains empty segment (double slash): \"{}\"",
+                path
+            ),
         ));
     }
 
@@ -108,7 +111,12 @@ fn validate_path_syntax(path: &str, span: proc_macro2::Span) -> Result<(), syn::
                         ));
                     }
                     // Parameter name must not start with a digit
-                    if param_name.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                    if param_name
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                    {
                         return Err(syn::Error::new(
                             span,
                             format!(
@@ -203,20 +211,17 @@ fn generate_route_handler(method: &str, attr: TokenStream, item: TokenStream) ->
     let fn_output = &input.sig.output;
     let fn_block = &input.block;
     let fn_generics = &input.sig.generics;
-    
+
     let path_value = path.value();
-    
+
     // Validate path syntax at compile time
     if let Err(err) = validate_path_syntax(&path_value, path.span()) {
         return err.to_compile_error().into();
     }
-    
+
     // Generate a companion module with route info
-    let route_fn_name = syn::Ident::new(
-        &format!("{}_route", fn_name),
-        fn_name.span()
-    );
-    
+    let route_fn_name = syn::Ident::new(&format!("{}_route", fn_name), fn_name.span());
+
     // Pick the right route helper function based on method
     let route_helper = match method {
         "GET" => quote!(::rustapi_rs::get_route),
@@ -229,7 +234,7 @@ fn generate_route_handler(method: &str, attr: TokenStream, item: TokenStream) ->
 
     // Extract metadata from attributes to chain builder methods
     let mut chained_calls = quote!();
-    
+
     for attr in fn_attrs {
         // Check for tag, summary, description
         // Use loose matching on the last segment to handle crate renaming or fully qualified paths
@@ -258,7 +263,7 @@ fn generate_route_handler(method: &str, attr: TokenStream, item: TokenStream) ->
         // The original handler function
         #(#fn_attrs)*
         #fn_vis #fn_async fn #fn_name #fn_generics (#fn_inputs) #fn_output #fn_block
-        
+
         // Route info function - creates a Route for this handler
         #[doc(hidden)]
         #fn_vis fn #route_fn_name() -> ::rustapi_rs::Route {
@@ -335,20 +340,20 @@ pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn tag(attr: TokenStream, item: TokenStream) -> TokenStream {
     let tag = parse_macro_input!(attr as LitStr);
     let input = parse_macro_input!(item as ItemFn);
-    
+
     let attrs = &input.attrs;
     let vis = &input.vis;
     let sig = &input.sig;
     let block = &input.block;
     let tag_value = tag.value();
-    
+
     // Add a doc comment with the tag info for documentation
     let expanded = quote! {
         #[doc = concat!("**Tag:** ", #tag_value)]
         #(#attrs)*
         #vis #sig #block
     };
-    
+
     TokenStream::from(expanded)
 }
 
@@ -367,20 +372,20 @@ pub fn tag(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn summary(attr: TokenStream, item: TokenStream) -> TokenStream {
     let summary = parse_macro_input!(attr as LitStr);
     let input = parse_macro_input!(item as ItemFn);
-    
+
     let attrs = &input.attrs;
     let vis = &input.vis;
     let sig = &input.sig;
     let block = &input.block;
     let summary_value = summary.value();
-    
+
     // Add a doc comment with the summary
     let expanded = quote! {
         #[doc = #summary_value]
         #(#attrs)*
         #vis #sig #block
     };
-    
+
     TokenStream::from(expanded)
 }
 
@@ -399,13 +404,13 @@ pub fn summary(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn description(attr: TokenStream, item: TokenStream) -> TokenStream {
     let desc = parse_macro_input!(attr as LitStr);
     let input = parse_macro_input!(item as ItemFn);
-    
+
     let attrs = &input.attrs;
     let vis = &input.vis;
     let sig = &input.sig;
     let block = &input.block;
     let desc_value = desc.value();
-    
+
     // Add a doc comment with the description
     let expanded = quote! {
         #[doc = ""]
@@ -413,7 +418,6 @@ pub fn description(attr: TokenStream, item: TokenStream) -> TokenStream {
         #(#attrs)*
         #vis #sig #block
     };
-    
+
     TokenStream::from(expanded)
 }
-

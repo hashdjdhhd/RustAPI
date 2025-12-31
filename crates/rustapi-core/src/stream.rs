@@ -47,6 +47,7 @@ use crate::response::{IntoResponse, Response};
 /// }
 /// ```
 pub struct StreamBody<S> {
+    #[allow(dead_code)]
     stream: S,
     content_type: Option<String>,
 }
@@ -78,9 +79,11 @@ where
     fn into_response(self) -> Response {
         // For the initial implementation, we return a response with streaming headers
         // and an empty body. The actual streaming would require a different body type.
-        
-        let content_type = self.content_type.unwrap_or_else(|| "application/octet-stream".to_string());
-        
+
+        let content_type = self
+            .content_type
+            .unwrap_or_else(|| "application/octet-stream".to_string());
+
         http::Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, content_type)
@@ -93,7 +96,9 @@ where
 /// Helper function to create a streaming body from an iterator of byte chunks
 ///
 /// This is useful for simple cases where you have a fixed set of chunks.
-pub fn stream_from_iter<I, E>(chunks: I) -> StreamBody<futures_util::stream::Iter<std::vec::IntoIter<Result<Bytes, E>>>>
+pub fn stream_from_iter<I, E>(
+    chunks: I,
+) -> StreamBody<futures_util::stream::Iter<std::vec::IntoIter<Result<Bytes, E>>>>
 where
     I: IntoIterator<Item = Result<Bytes, E>>,
 {
@@ -105,7 +110,9 @@ where
 /// Helper function to create a streaming body from a string iterator
 ///
 /// Converts each string to bytes automatically.
-pub fn stream_from_strings<I, S, E>(strings: I) -> StreamBody<futures_util::stream::Iter<std::vec::IntoIter<Result<Bytes, E>>>>
+pub fn stream_from_strings<I, S, E>(
+    strings: I,
+) -> StreamBody<futures_util::stream::Iter<std::vec::IntoIter<Result<Bytes, E>>>>
 where
     I: IntoIterator<Item = Result<S, E>>,
     S: Into<String>,
@@ -125,12 +132,10 @@ mod tests {
 
     #[test]
     fn test_stream_body_default_content_type() {
-        let chunks: Vec<Result<Bytes, std::convert::Infallible>> = vec![
-            Ok(Bytes::from("chunk 1")),
-        ];
+        let chunks: Vec<Result<Bytes, std::convert::Infallible>> = vec![Ok(Bytes::from("chunk 1"))];
         let stream_body = StreamBody::new(stream::iter(chunks));
         let response = stream_body.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -144,13 +149,10 @@ mod tests {
 
     #[test]
     fn test_stream_body_custom_content_type() {
-        let chunks: Vec<Result<Bytes, std::convert::Infallible>> = vec![
-            Ok(Bytes::from("chunk 1")),
-        ];
-        let stream_body = StreamBody::new(stream::iter(chunks))
-            .content_type("text/plain");
+        let chunks: Vec<Result<Bytes, std::convert::Infallible>> = vec![Ok(Bytes::from("chunk 1"))];
+        let stream_body = StreamBody::new(stream::iter(chunks)).content_type("text/plain");
         let response = stream_body.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -160,25 +162,20 @@ mod tests {
 
     #[test]
     fn test_stream_from_iter() {
-        let chunks: Vec<Result<Bytes, std::convert::Infallible>> = vec![
-            Ok(Bytes::from("chunk 1")),
-            Ok(Bytes::from("chunk 2")),
-        ];
+        let chunks: Vec<Result<Bytes, std::convert::Infallible>> =
+            vec![Ok(Bytes::from("chunk 1")), Ok(Bytes::from("chunk 2"))];
         let stream_body = stream_from_iter(chunks);
         let response = stream_body.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[test]
     fn test_stream_from_strings() {
-        let strings: Vec<Result<&str, std::convert::Infallible>> = vec![
-            Ok("hello"),
-            Ok("world"),
-        ];
+        let strings: Vec<Result<&str, std::convert::Infallible>> = vec![Ok("hello"), Ok("world")];
         let stream_body = stream_from_strings(strings);
         let response = stream_body.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::OK);
     }
 }

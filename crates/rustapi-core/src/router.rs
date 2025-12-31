@@ -72,9 +72,18 @@ pub struct RouteConflictError {
 
 impl std::fmt::Display for RouteConflictError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\n╭─────────────────────────────────────────────────────────────╮")?;
-        writeln!(f, "│                    ROUTE CONFLICT DETECTED                   │")?;
-        writeln!(f, "╰─────────────────────────────────────────────────────────────╯")?;
+        writeln!(
+            f,
+            "\n╭─────────────────────────────────────────────────────────────╮"
+        )?;
+        writeln!(
+            f,
+            "│                    ROUTE CONFLICT DETECTED                   │"
+        )?;
+        writeln!(
+            f,
+            "╰─────────────────────────────────────────────────────────────╯"
+        )?;
         writeln!(f)?;
         writeln!(f, "  Conflicting routes:")?;
         writeln!(f, "    → Existing: {}", self.existing_path)?;
@@ -88,8 +97,14 @@ impl std::fmt::Display for RouteConflictError {
         writeln!(f)?;
         writeln!(f, "  How to resolve:")?;
         writeln!(f, "    1. Use different path patterns for each route")?;
-        writeln!(f, "    2. If paths must be similar, ensure parameter names differ")?;
-        writeln!(f, "    3. Consider using different HTTP methods if appropriate")?;
+        writeln!(
+            f,
+            "    2. If paths must be similar, ensure parameter names differ"
+        )?;
+        writeln!(
+            f,
+            "    3. Consider using different HTTP methods if appropriate"
+        )?;
         writeln!(f)?;
         writeln!(f, "  Example:")?;
         writeln!(f, "    Instead of:")?;
@@ -139,7 +154,7 @@ impl MethodRouter {
 
     /// Create from pre-boxed handlers (internal use)
     pub(crate) fn from_boxed(handlers: HashMap<Method, BoxedHandler>) -> Self {
-        Self { 
+        Self {
             handlers,
             operations: HashMap::new(), // Operations lost when using raw boxed handlers for now
         }
@@ -229,10 +244,10 @@ impl Router {
     pub fn route(mut self, path: &str, method_router: MethodRouter) -> Self {
         // Convert {param} style to :param for matchit
         let matchit_path = convert_path_params(path);
-        
+
         // Get the methods being registered
         let methods: Vec<Method> = method_router.handlers.keys().cloned().collect();
-        
+
         match self.inner.insert(matchit_path.clone(), method_router) {
             Ok(_) => {
                 // Track the registered route
@@ -246,40 +261,41 @@ impl Router {
             }
             Err(e) => {
                 // Find the existing conflicting route
-                let existing_path = self.find_conflicting_route(&matchit_path)
+                let existing_path = self
+                    .find_conflicting_route(&matchit_path)
                     .map(|info| info.path.clone())
                     .unwrap_or_else(|| "<unknown>".to_string());
-                
+
                 let conflict_error = RouteConflictError {
                     new_path: path.to_string(),
                     method: methods.first().cloned(),
                     existing_path,
                     details: e.to_string(),
                 };
-                
+
                 panic!("{}", conflict_error);
             }
         }
         self
     }
-    
+
     /// Find a conflicting route by checking registered routes
     fn find_conflicting_route(&self, matchit_path: &str) -> Option<&RouteInfo> {
         // Try to find an exact match first
         if let Some(info) = self.registered_routes.get(matchit_path) {
             return Some(info);
         }
-        
+
         // Try to find a route that would conflict (same structure but different param names)
         let normalized_new = normalize_path_for_comparison(matchit_path);
-        
+
         for (registered_path, info) in &self.registered_routes {
             let normalized_existing = normalize_path_for_comparison(registered_path);
             if normalized_new == normalized_existing {
                 return Some(info);
             }
         }
-        
+
         None
     }
 
@@ -297,15 +313,11 @@ impl Router {
     }
 
     /// Match a request and return the handler + params
-    pub(crate) fn match_route(
-        &self,
-        path: &str,
-        method: &Method,
-    ) -> RouteMatch<'_> {
+    pub(crate) fn match_route(&self, path: &str, method: &Method) -> RouteMatch<'_> {
         match self.inner.at(path) {
             Ok(matched) => {
                 let method_router = matched.value;
-                
+
                 if let Some(handler) = method_router.get_handler(method) {
                     // Convert params to HashMap
                     let params: HashMap<String, String> = matched
@@ -313,7 +325,7 @@ impl Router {
                         .iter()
                         .map(|(k, v)| (k.to_string(), v.to_string()))
                         .collect();
-                    
+
                     RouteMatch::Found { handler, params }
                 } else {
                     RouteMatch::MethodNotAllowed {
@@ -329,7 +341,7 @@ impl Router {
     pub(crate) fn state_ref(&self) -> Arc<Extensions> {
         self.state.clone()
     }
-    
+
     /// Get registered routes (for testing and debugging)
     pub fn registered_routes(&self) -> &HashMap<String, RouteInfo> {
         &self.registered_routes
@@ -357,7 +369,7 @@ pub(crate) enum RouteMatch<'a> {
 /// Convert {param} style to :param for matchit
 fn convert_path_params(path: &str) -> String {
     let mut result = String::with_capacity(path.len());
-    
+
     for ch in path.chars() {
         match ch {
             '{' => {
@@ -371,7 +383,7 @@ fn convert_path_params(path: &str) -> String {
             }
         }
     }
-    
+
     result
 }
 
@@ -379,7 +391,7 @@ fn convert_path_params(path: &str) -> String {
 fn normalize_path_for_comparison(path: &str) -> String {
     let mut result = String::with_capacity(path.len());
     let mut in_param = false;
-    
+
     for ch in path.chars() {
         match ch {
             ':' => {
@@ -398,7 +410,7 @@ fn normalize_path_for_comparison(path: &str) -> String {
             }
         }
     }
-    
+
     result
 }
 
@@ -415,51 +427,66 @@ mod tests {
         );
         assert_eq!(convert_path_params("/static/path"), "/static/path");
     }
-    
+
     #[test]
     fn test_normalize_path_for_comparison() {
         assert_eq!(normalize_path_for_comparison("/users/:id"), "/users/:_");
-        assert_eq!(normalize_path_for_comparison("/users/:user_id"), "/users/:_");
+        assert_eq!(
+            normalize_path_for_comparison("/users/:user_id"),
+            "/users/:_"
+        );
         assert_eq!(
             normalize_path_for_comparison("/users/:id/posts/:post_id"),
             "/users/:_/posts/:_"
         );
-        assert_eq!(normalize_path_for_comparison("/static/path"), "/static/path");
+        assert_eq!(
+            normalize_path_for_comparison("/static/path"),
+            "/static/path"
+        );
     }
-    
+
     #[test]
     #[should_panic(expected = "ROUTE CONFLICT DETECTED")]
     fn test_route_conflict_detection() {
-        async fn handler1() -> &'static str { "handler1" }
-        async fn handler2() -> &'static str { "handler2" }
-        
+        async fn handler1() -> &'static str {
+            "handler1"
+        }
+        async fn handler2() -> &'static str {
+            "handler2"
+        }
+
         let _router = Router::new()
             .route("/users/{id}", get(handler1))
             .route("/users/{user_id}", get(handler2)); // This should panic
     }
-    
+
     #[test]
     fn test_no_conflict_different_paths() {
-        async fn handler1() -> &'static str { "handler1" }
-        async fn handler2() -> &'static str { "handler2" }
-        
+        async fn handler1() -> &'static str {
+            "handler1"
+        }
+        async fn handler2() -> &'static str {
+            "handler2"
+        }
+
         let router = Router::new()
             .route("/users/{id}", get(handler1))
             .route("/users/{id}/profile", get(handler2));
-        
+
         assert_eq!(router.registered_routes().len(), 2);
     }
-    
+
     #[test]
     fn test_route_info_tracking() {
-        async fn handler() -> &'static str { "handler" }
-        
-        let router = Router::new()
-            .route("/users/{id}", get(handler));
-        
+        async fn handler() -> &'static str {
+            "handler"
+        }
+
+        let router = Router::new().route("/users/{id}", get(handler));
+
         let routes = router.registered_routes();
         assert_eq!(routes.len(), 1);
-        
+
         let info = routes.get("/users/:id").unwrap();
         assert_eq!(info.path, "/users/{id}");
         assert_eq!(info.methods.len(), 1);
@@ -497,36 +524,36 @@ mod property_tests {
         ) {
             // Ensure param names are different
             prop_assume!(param1 != param2);
-            
+
             // Build two paths with same structure but different param names
             let mut path1 = String::from("/");
             let mut path2 = String::from("/");
-            
+
             for segment in &segments {
                 path1.push_str(segment);
                 path1.push('/');
                 path2.push_str(segment);
                 path2.push('/');
             }
-            
+
             path1.push('{');
             path1.push_str(&param1);
             path1.push('}');
-            
+
             path2.push('{');
             path2.push_str(&param2);
             path2.push('}');
-            
+
             // Try to register both routes - should panic
             let result = catch_unwind(AssertUnwindSafe(|| {
                 async fn handler1() -> &'static str { "handler1" }
                 async fn handler2() -> &'static str { "handler2" }
-                
+
                 let _router = Router::new()
                     .route(&path1, get(handler1))
                     .route(&path2, get(handler2));
             }));
-            
+
             prop_assert!(
                 result.is_err(),
                 "Routes '{}' and '{}' should conflict but didn't",
@@ -550,52 +577,52 @@ mod property_tests {
             // Build two paths
             let mut path1 = String::from("/");
             let mut path2 = String::from("/");
-            
+
             for segment in &segments1 {
                 path1.push_str(segment);
                 path1.push('/');
             }
             path1.pop(); // Remove trailing slash
-            
+
             for segment in &segments2 {
                 path2.push_str(segment);
                 path2.push('/');
             }
             path2.pop(); // Remove trailing slash
-            
+
             if has_param1 {
                 path1.push_str("/{id}");
             }
-            
+
             if has_param2 {
                 path2.push_str("/{id}");
             }
-            
+
             // Normalize paths for comparison
             let norm1 = normalize_path_for_comparison(&convert_path_params(&path1));
             let norm2 = normalize_path_for_comparison(&convert_path_params(&path2));
-            
+
             // Only test if paths are actually different
             prop_assume!(norm1 != norm2);
-            
+
             // Try to register both routes - should succeed
             let result = catch_unwind(AssertUnwindSafe(|| {
                 async fn handler1() -> &'static str { "handler1" }
                 async fn handler2() -> &'static str { "handler2" }
-                
+
                 let router = Router::new()
                     .route(&path1, get(handler1))
                     .route(&path2, get(handler2));
-                
+
                 router.registered_routes().len()
             }));
-            
+
             prop_assert!(
                 result.is_ok(),
                 "Routes '{}' and '{}' should not conflict but did",
                 path1, path2
             );
-            
+
             if let Ok(count) = result {
                 prop_assert_eq!(count, 2, "Should have registered 2 routes");
             }
@@ -613,21 +640,21 @@ mod property_tests {
             param2 in "[a-z][a-z0-9]{1,5}",
         ) {
             prop_assume!(param1 != param2);
-            
+
             let path1 = format!("/{}/{{{}}}", segment, param1);
             let path2 = format!("/{}/{{{}}}", segment, param2);
-            
+
             let result = catch_unwind(AssertUnwindSafe(|| {
                 async fn handler1() -> &'static str { "handler1" }
                 async fn handler2() -> &'static str { "handler2" }
-                
+
                 let _router = Router::new()
                     .route(&path1, get(handler1))
                     .route(&path2, get(handler2));
             }));
-            
+
             prop_assert!(result.is_err(), "Should have panicked due to conflict");
-            
+
             // Check that the panic message contains useful information
             if let Err(panic_info) = result {
                 if let Some(msg) = panic_info.downcast_ref::<String>() {
@@ -661,27 +688,27 @@ mod property_tests {
         ) {
             // Build a path
             let mut path = String::from("/");
-            
+
             for segment in &segments {
                 path.push_str(segment);
                 path.push('/');
             }
             path.pop(); // Remove trailing slash
-            
+
             if has_param {
                 path.push_str("/{id}");
             }
-            
+
             // Try to register the same path twice - should panic
             let result = catch_unwind(AssertUnwindSafe(|| {
                 async fn handler1() -> &'static str { "handler1" }
                 async fn handler2() -> &'static str { "handler2" }
-                
+
                 let _router = Router::new()
                     .route(&path, get(handler1))
                     .route(&path, get(handler2));
             }));
-            
+
             prop_assert!(
                 result.is_err(),
                 "Registering path '{}' twice should conflict but didn't",

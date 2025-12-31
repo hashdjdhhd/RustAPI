@@ -751,7 +751,6 @@ impl<T: for<'a> Schema<'a>> OperationModifier for ValidatedJson<T> {
                     );
                     Some(map)
                 },
-                ..Default::default()
             },
         );
     }
@@ -878,12 +877,10 @@ impl<T: for<'a> Schema<'a>> ResponseModifier for Json<T> {
                     );
                     Some(map)
                 },
-                ..Default::default()
             },
         );
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -989,12 +986,12 @@ mod tests {
                         "Header '{}' not found",
                         name
                     );
-                    
+
                     // Check that the value is among the extracted values
                     let value_found = all_values.iter().any(|v| {
                         v.to_str().map(|s| s == value.as_str()).unwrap_or(false)
                     });
-                    
+
                     prop_assert!(
                         value_found,
                         "Header '{}' value '{}' not found in extracted values",
@@ -1103,7 +1100,7 @@ mod tests {
                 }
                 let req = builder.body(()).unwrap();
                 let (mut parts, _) = req.into_parts();
-                
+
                 // Add socket address to extensions
                 let socket_addr = std::net::SocketAddr::new(socket_ip, 8080);
                 parts.extensions.insert(socket_addr);
@@ -1207,11 +1204,14 @@ mod tests {
         let request = create_test_request_with_headers(
             Method::GET,
             "/test",
-            vec![("content-type", "application/json"), ("accept", "text/html")],
+            vec![
+                ("content-type", "application/json"),
+                ("accept", "text/html"),
+            ],
         );
 
         let headers = Headers::from_request_parts(&request).unwrap();
-        
+
         assert!(headers.contains("content-type"));
         assert!(headers.contains("accept"));
         assert!(!headers.contains("x-custom"));
@@ -1260,7 +1260,7 @@ mod tests {
             .header("x-forwarded-for", "192.168.1.100");
         let req = builder.body(()).unwrap();
         let (mut parts, _) = req.into_parts();
-        
+
         let socket_addr = std::net::SocketAddr::new(
             std::net::IpAddr::V4(std::net::Ipv4Addr::new(10, 0, 0, 1)),
             8080,
@@ -1283,11 +1283,8 @@ mod tests {
         #[derive(Clone, Debug, PartialEq)]
         struct MyData(String);
 
-        let request = create_test_request_with_extensions(
-            Method::GET,
-            "/test",
-            MyData("hello".to_string()),
-        );
+        let request =
+            create_test_request_with_extensions(Method::GET, "/test", MyData("hello".to_string()));
 
         let result = Extension::<MyData>::from_request_parts(&request);
         assert!(result.is_ok());
@@ -1355,7 +1352,7 @@ mod tests {
                     for (name, value) in &cookies {
                         let cookie = extracted.get(name.as_str())
                             .ok_or_else(|| TestCaseError::fail(format!("Cookie '{}' not found", name)))?;
-                        
+
                         prop_assert_eq!(
                             cookie.value(),
                             value.as_str(),
@@ -1366,7 +1363,7 @@ mod tests {
 
                     // Count cookies in jar
                     let extracted_count = extracted.iter().count();
-                    
+
                     // Note: Due to potential duplicate cookie names, we check that we have
                     // at least as many unique cookies as we put in
                     let unique_names: std::collections::HashSet<_> = cookies.iter().map(|(n, _)| n).collect();
@@ -1392,11 +1389,11 @@ mod tests {
             );
 
             let cookies = Cookies::from_request_parts(&request).unwrap();
-            
+
             assert!(cookies.contains("session"));
             assert!(cookies.contains("user"));
             assert!(!cookies.contains("other"));
-            
+
             assert_eq!(cookies.get("session").unwrap().value(), "abc123");
             assert_eq!(cookies.get("user").unwrap().value(), "john");
         }

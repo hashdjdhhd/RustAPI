@@ -65,13 +65,16 @@ mod test_client;
 
 // Public API
 pub use app::RustApi;
-pub use error::{ApiError, Environment, Result, get_environment};
-pub use extract::{Body, ClientIp, Extension, FromRequest, FromRequestParts, HeaderValue, Headers, Json, Path, Query, State, ValidatedJson};
+pub use error::{get_environment, ApiError, Environment, Result};
 #[cfg(feature = "cookies")]
 pub use extract::Cookies;
+pub use extract::{
+    Body, ClientIp, Extension, FromRequest, FromRequestParts, HeaderValue, Headers, Json, Path,
+    Query, State, ValidatedJson,
+};
 pub use handler::{
-    Handler, HandlerService, Route, RouteHandler,
-    get_route, post_route, put_route, patch_route, delete_route,
+    delete_route, get_route, patch_route, post_route, put_route, Handler, HandlerService, Route,
+    RouteHandler,
 };
 pub use middleware::{BodyLimitLayer, RequestId, RequestIdLayer, TracingLayer, DEFAULT_BODY_LIMIT};
 #[cfg(feature = "metrics")]

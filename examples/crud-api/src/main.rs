@@ -119,7 +119,7 @@ impl TaskStore {
         let tasks = self.tasks.read().unwrap();
         let mut result: Vec<Task> = tasks
             .values()
-            .filter(|t| completed.map_or(true, |c| t.completed == c))
+            .filter(|t| completed.is_none_or(|c| t.completed == c))
             .cloned()
             .collect();
         result.sort_by_key(|t| t.id);
@@ -167,7 +167,6 @@ impl Default for TaskStore {
     }
 }
 
-
 // ============================================
 // Handlers
 // ============================================
@@ -183,17 +182,17 @@ async fn list_tasks(
 ) -> Json<PaginatedTasks> {
     let all_tasks = store.list(params.completed);
     let total = all_tasks.len();
-    
+
     let page = params.page.unwrap_or(1);
     let limit = params.limit.unwrap_or(10);
     let skip = ((page - 1) * limit) as usize;
-    
+
     let tasks: Vec<Task> = all_tasks
         .into_iter()
         .skip(skip)
         .take(limit as usize)
         .collect();
-    
+
     Json(PaginatedTasks {
         tasks,
         total,
@@ -221,7 +220,9 @@ async fn get_task(
 #[rustapi_rs::post("/tasks")]
 #[rustapi_rs::tag("Tasks")]
 #[rustapi_rs::summary("Create Task")]
-#[rustapi_rs::description("Creates a new task. Validates title (1-200 chars) and description (max 1000 chars).")]
+#[rustapi_rs::description(
+    "Creates a new task. Validates title (1-200 chars) and description (max 1000 chars)."
+)]
 async fn create_task(
     State(store): State<TaskStore>,
     ValidatedJson(body): ValidatedJson<CreateTask>,

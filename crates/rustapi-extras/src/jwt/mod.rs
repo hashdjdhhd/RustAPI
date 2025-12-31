@@ -59,7 +59,10 @@ impl JwtValidation {
     /// Convert to jsonwebtoken's Validation struct
     fn to_jsonwebtoken_validation(&self) -> Validation {
         let mut validation = Validation::new(
-            self.algorithms.first().copied().unwrap_or(jsonwebtoken::Algorithm::HS256)
+            self.algorithms
+                .first()
+                .copied()
+                .unwrap_or(jsonwebtoken::Algorithm::HS256),
         );
         validation.leeway = self.leeway;
         validation.validate_exp = self.validate_exp;
@@ -116,7 +119,7 @@ impl<T: DeserializeOwned + Clone + Send + Sync + 'static> JwtLayer<T> {
     }
 
     /// Skip JWT validation for specific paths.
-    /// 
+    ///
     /// Paths that start with any of the provided prefixes will bypass JWT validation.
     /// This is useful for public endpoints like health checks, documentation, and login.
     ///
@@ -183,11 +186,15 @@ impl<T: DeserializeOwned + Clone + Send + Sync + 'static> MiddlewareLayer for Jw
                             } else if let Some(token) = header_str.strip_prefix("bearer ") {
                                 token.to_string()
                             } else {
-                                return create_unauthorized_response("Invalid Authorization header format");
+                                return create_unauthorized_response(
+                                    "Invalid Authorization header format",
+                                );
                             }
                         }
                         Err(_) => {
-                            return create_unauthorized_response("Invalid Authorization header encoding");
+                            return create_unauthorized_response(
+                                "Invalid Authorization header encoding",
+                            );
                         }
                     }
                 }
@@ -203,19 +210,16 @@ impl<T: DeserializeOwned + Clone + Send + Sync + 'static> MiddlewareLayer for Jw
             match decode::<T>(&token, &decoding_key, &jwt_validation) {
                 Ok(token_data) => {
                     // Store the validated claims in request extensions
-                    req.extensions_mut().insert(ValidatedClaims(token_data.claims));
-                    
+                    req.extensions_mut()
+                        .insert(ValidatedClaims(token_data.claims));
+
                     // Continue to the next handler
                     next(req).await
                 }
                 Err(err) => {
                     let message = match err.kind() {
-                        jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                            "Token has expired"
-                        }
-                        jsonwebtoken::errors::ErrorKind::InvalidToken => {
-                            "Invalid token"
-                        }
+                        jsonwebtoken::errors::ErrorKind::ExpiredSignature => "Token has expired",
+                        jsonwebtoken::errors::ErrorKind::InvalidToken => "Invalid token",
                         jsonwebtoken::errors::ErrorKind::InvalidSignature => {
                             "Invalid token signature"
                         }
@@ -332,7 +336,7 @@ impl<T> OperationModifier for AuthUser<T> {
         // Add 401 Unauthorized response to OpenAPI spec
         use rustapi_openapi::{MediaType, ResponseSpec, SchemaRef};
         use std::collections::HashMap;
-        
+
         op.responses.insert(
             "401".to_string(),
             ResponseSpec {
@@ -349,7 +353,6 @@ impl<T> OperationModifier for AuthUser<T> {
                     );
                     Some(map)
                 },
-                ..Default::default()
             },
         );
     }
@@ -376,14 +379,16 @@ impl<T> OperationModifier for AuthUser<T> {
 ///
 /// let token = create_token(&claims, "my-secret").unwrap();
 /// ```
-pub fn create_token<T: Serialize>(claims: &T, secret: &str) -> std::result::Result<String, JwtError> {
+pub fn create_token<T: Serialize>(
+    claims: &T,
+    secret: &str,
+) -> std::result::Result<String, JwtError> {
     let encoding_key = jsonwebtoken::EncodingKey::from_secret(secret.as_bytes());
     let header = jsonwebtoken::Header::default();
-    
+
     jsonwebtoken::encode(&header, claims, &encoding_key)
         .map_err(|e| JwtError::Invalid(e.to_string()))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -409,14 +414,12 @@ mod tests {
     /// Create a test request with optional Authorization header
     fn create_test_request(auth_header: Option<&str>) -> Request {
         let uri: http::Uri = "/test".parse().unwrap();
-        let mut builder = http::Request::builder()
-            .method(Method::GET)
-            .uri(uri);
-        
+        let mut builder = http::Request::builder().method(Method::GET).uri(uri);
+
         if let Some(auth) = auth_header {
             builder = builder.header(http::header::AUTHORIZATION, auth);
         }
-        
+
         let req = builder.body(()).unwrap();
         Request::from_http_request(req, Bytes::new())
     }
@@ -451,10 +454,7 @@ mod tests {
 
     /// Strategy for generating optional custom fields
     fn custom_field_strategy() -> impl Strategy<Value = Option<String>> {
-        prop_oneof![
-            Just(None),
-            "[a-zA-Z0-9 ]{1,100}".prop_map(Some),
-        ]
+        prop_oneof![Just(None), "[a-zA-Z0-9 ]{1,100}".prop_map(Some),]
     }
 
     // **Feature: phase3-batteries-included, Property 5: JWT validation correctness**
@@ -587,7 +587,7 @@ mod tests {
                         if let Ok(AuthUser(claims)) = AuthUser::<TestClaims>::from_request_parts(&req) {
                             *extracted.lock().unwrap() = Some(claims);
                         }
-                        
+
                         http::Response::builder()
                             .status(StatusCode::OK)
                             .body(Full::new(Bytes::from("success")))
@@ -603,7 +603,7 @@ mod tests {
                 // Verify extracted claims match original
                 let extracted = extracted_claims.lock().unwrap();
                 prop_assert!(extracted.is_some(), "Claims should have been extracted");
-                
+
                 let extracted = extracted.as_ref().unwrap();
                 prop_assert_eq!(
                     &extracted.sub, &original_claims.sub,
@@ -713,7 +713,7 @@ mod tests {
                     body.collect().await.unwrap().to_bytes()
                 };
                 let body_str = String::from_utf8_lossy(&body_bytes);
-                
+
                 prop_assert!(
                     body_str.contains("\"type\":\"unauthorized\"") || body_str.contains("\"type\": \"unauthorized\""),
                     "Response body should contain error type 'unauthorized', got: {}",
@@ -779,7 +779,7 @@ mod tests {
     fn test_auth_user_extractor_without_middleware() {
         let request = create_test_request(None);
         let result = AuthUser::<TestClaims>::from_request_parts(&request);
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.status, StatusCode::UNAUTHORIZED);
@@ -794,7 +794,7 @@ mod tests {
         };
 
         let token = create_token(&claims, "my-secret").unwrap();
-        
+
         // Token should have 3 parts separated by dots
         let parts: Vec<&str> = token.split('.').collect();
         assert_eq!(parts.len(), 3);

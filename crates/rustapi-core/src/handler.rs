@@ -69,7 +69,7 @@ pub trait Handler<T>: Clone + Send + Sync + Sized + 'static {
 
     /// Call the handler with the request
     fn call(self, req: Request) -> Self::Future;
-    
+
     /// Update the OpenAPI operation
     fn update_operation(op: &mut Operation);
 }
@@ -110,11 +110,9 @@ where
     type Future = Pin<Box<dyn Future<Output = Response> + Send>>;
 
     fn call(self, _req: Request) -> Self::Future {
-        Box::pin(async move {
-            self().await.into_response()
-        })
+        Box::pin(async move { self().await.into_response() })
     }
-    
+
     fn update_operation(op: &mut Operation) {
         Res::update_response(op);
     }
@@ -139,7 +137,7 @@ where
             self(t1).await.into_response()
         })
     }
-    
+
     fn update_operation(op: &mut Operation) {
         T1::update_operation(op);
         Res::update_response(op);
@@ -170,7 +168,7 @@ where
             self(t1, t2).await.into_response()
         })
     }
-    
+
     fn update_operation(op: &mut Operation) {
         T1::update_operation(op);
         T2::update_operation(op);
@@ -207,7 +205,7 @@ where
             self(t1, t2, t3).await.into_response()
         })
     }
-    
+
     fn update_operation(op: &mut Operation) {
         T1::update_operation(op);
         T2::update_operation(op);
@@ -250,7 +248,7 @@ where
             self(t1, t2, t3, t4).await.into_response()
         })
     }
-    
+
     fn update_operation(op: &mut Operation) {
         T1::update_operation(op);
         T2::update_operation(op);
@@ -299,7 +297,7 @@ where
             self(t1, t2, t3, t4, t5).await.into_response()
         })
     }
-    
+
     fn update_operation(op: &mut Operation) {
         T1::update_operation(op);
         T2::update_operation(op);
@@ -311,9 +309,8 @@ where
 }
 
 // Type-erased handler for storage in router
-pub(crate) type BoxedHandler = std::sync::Arc<
-    dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync
->;
+pub(crate) type BoxedHandler =
+    std::sync::Arc<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
 
 /// Create a boxed handler from any Handler
 pub(crate) fn into_boxed_handler<H, T>(handler: H) -> BoxedHandler
@@ -323,9 +320,7 @@ where
 {
     std::sync::Arc::new(move |req| {
         let handler = handler.clone();
-        Box::pin(async move {
-            handler.call(req).await
-        })
+        Box::pin(async move { handler.call(req).await })
     })
 }
 
@@ -357,7 +352,7 @@ impl Route {
     {
         let mut operation = Operation::new();
         H::update_operation(&mut operation);
-        
+
         Self {
             path,
             method,
@@ -391,11 +386,7 @@ impl Route {
 #[macro_export]
 macro_rules! route {
     ($handler:ident) => {{
-        $crate::Route::new(
-            $handler::PATH,
-            $handler::METHOD,
-            $handler,
-        )
+        $crate::Route::new($handler::PATH, $handler::METHOD, $handler)
     }};
 }
 
@@ -426,7 +417,7 @@ where
     Route::new(path, "PUT", handler)
 }
 
-/// Create a PATCH route 
+/// Create a PATCH route
 pub fn patch_route<H, T>(path: &'static str, handler: H) -> Route
 where
     H: Handler<T>,

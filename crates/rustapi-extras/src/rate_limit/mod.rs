@@ -89,7 +89,7 @@ impl RateLimitStore {
     #[allow(dead_code)]
     fn get_info(&self, ip: IpAddr, max_requests: u32, window: Duration) -> Option<RateLimitInfo> {
         let now = Instant::now();
-        
+
         self.entries.get(&ip).map(|entry| {
             // Check if window has expired
             let (count, window_start) = if now.duration_since(entry.window_start) >= window {
@@ -182,7 +182,7 @@ impl RateLimitLayer {
     }
 
     /// Extract client IP from request.
-    /// 
+    ///
     /// Checks X-Forwarded-For header first, then falls back to a default IP.
     fn extract_client_ip(req: &Request) -> IpAddr {
         // Try X-Forwarded-For header first
@@ -224,8 +224,8 @@ impl MiddlewareLayer for RateLimitLayer {
 
         Box::pin(async move {
             let client_ip = RateLimitLayer::extract_client_ip(&req);
-            
-            let (is_allowed, _count, remaining, reset) = 
+
+            let (is_allowed, _count, remaining, reset) =
                 store.check_and_update(client_ip, max_requests, window);
 
             if !is_allowed {
@@ -271,10 +271,7 @@ impl MiddlewareLayer for RateLimitLayer {
                 "X-RateLimit-Remaining",
                 remaining.to_string().parse().unwrap(),
             );
-            headers.insert(
-                "X-RateLimit-Reset",
-                reset.to_string().parse().unwrap(),
-            );
+            headers.insert("X-RateLimit-Reset", reset.to_string().parse().unwrap());
 
             response
         })
@@ -334,14 +331,12 @@ mod tests {
     /// Create a test request with optional X-Forwarded-For header
     fn create_test_request(ip: Option<&str>) -> Request {
         let uri: http::Uri = "/test".parse().unwrap();
-        let mut builder = http::Request::builder()
-            .method(Method::GET)
-            .uri(uri);
-        
+        let mut builder = http::Request::builder().method(Method::GET).uri(uri);
+
         if let Some(ip_str) = ip {
             builder = builder.header("X-Forwarded-For", ip_str);
         }
-        
+
         let req = builder.body(()).unwrap();
         Request::from_http_request(req, Bytes::new())
     }
@@ -373,7 +368,7 @@ mod tests {
     // **Feature: phase3-batteries-included, Property 11: Rate limit state tracking**
     //
     // For any rate limit configuration (N requests per window W) and client IP, after K requests
-    // where K ≤ N, the response headers SHALL show `X-RateLimit-Remaining: N-K` and 
+    // where K ≤ N, the response headers SHALL show `X-RateLimit-Remaining: N-K` and
     // `X-RateLimit-Limit: N`.
     //
     // **Validates: Requirements 4.1, 4.3**
@@ -388,7 +383,7 @@ mod tests {
         ) {
             // Ensure we don't exceed the limit for this test
             let num_requests = num_requests.min(max_requests);
-            
+
             let rt = tokio::runtime::Runtime::new().unwrap();
             let result: std::result::Result<(), TestCaseError> = rt.block_on(async {
                 let layer = RateLimitLayer::new(max_requests, Duration::from_secs(window_secs));
@@ -510,9 +505,9 @@ mod tests {
                     body.collect().await.unwrap().to_bytes()
                 };
                 let body_str = String::from_utf8_lossy(&body_bytes);
-                
+
                 prop_assert!(
-                    body_str.contains("\"type\":\"rate_limit_exceeded\"") || 
+                    body_str.contains("\"type\":\"rate_limit_exceeded\"") ||
                     body_str.contains("\"type\": \"rate_limit_exceeded\""),
                     "Response body should contain error type 'rate_limit_exceeded', got: {}",
                     body_str

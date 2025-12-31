@@ -20,7 +20,11 @@ pub struct FieldError {
 
 impl FieldError {
     /// Create a new field error.
-    pub fn new(field: impl Into<String>, code: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn new(
+        field: impl Into<String>,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             field: field.into(),
             code: code.into(),
@@ -99,7 +103,11 @@ impl ValidationError {
     }
 
     /// Create a validation error for a single field.
-    pub fn field(field: impl Into<String>, code: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn field(
+        field: impl Into<String>,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self::new(vec![FieldError::new(field, code, message)])
     }
 
@@ -208,12 +216,14 @@ mod tests {
 
     #[test]
     fn validation_error_serialization() {
-        let error = ValidationError::new(vec![
-            FieldError::new("email", "email", "Invalid email format"),
-        ]);
+        let error = ValidationError::new(vec![FieldError::new(
+            "email",
+            "email",
+            "Invalid email format",
+        )]);
 
         let json = serde_json::to_value(&error).unwrap();
-        
+
         assert_eq!(json["error"]["type"], "validation_error");
         assert_eq!(json["error"]["message"], "Validation failed");
         assert_eq!(json["error"]["fields"][0]["field"], "email");

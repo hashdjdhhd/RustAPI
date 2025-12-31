@@ -89,9 +89,9 @@ pub struct ResponseSpec {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SchemaRef {
-    Ref { 
+    Ref {
         #[serde(rename = "$ref")]
-        reference: String 
+        reference: String,
     },
     Inline(serde_json::Value),
 }
@@ -135,11 +135,11 @@ impl OpenApiSpec {
         self.schemas.insert(name.to_string(), schema);
         self
     }
-    
+
     /// Register a type that implements Schema (utoipa::ToSchema)
     pub fn register<T: for<'a> utoipa::ToSchema<'a>>(mut self) -> Self {
         let (name, schema) = T::schema(); // returns (Cow<str>, RefOr<Schema>)
-        // Convert to JSON value
+                                          // Convert to JSON value
         if let Ok(json_schema) = serde_json::to_value(schema) {
             self.schemas.insert(name.to_string(), json_schema);
         }
@@ -173,12 +173,13 @@ impl Operation {
             tags: None,
             parameters: None,
             request_body: None,
-            responses: HashMap::from([
-                ("200".to_string(), ResponseSpec {
+            responses: HashMap::from([(
+                "200".to_string(),
+                ResponseSpec {
                     description: "Successful response".to_string(),
                     content: None,
-                })
-            ]),
+                },
+            )]),
         }
     }
 
@@ -246,11 +247,7 @@ macro_rules! impl_op_modifier_for_primitives {
 }
 
 impl_op_modifier_for_primitives!(
-    i8, i16, i32, i64, i128, isize,
-    u8, u16, u32, u64, u128, usize,
-    f32, f64,
-    bool,
-    String
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64, bool, String
 );
 
 // ResponseModifier trait
@@ -274,14 +271,16 @@ impl ResponseModifier for () {
 impl ResponseModifier for String {
     fn update_response(op: &mut Operation) {
         let mut content = std::collections::HashMap::new();
-        content.insert("text/plain".to_string(), MediaType {
-            schema: SchemaRef::Inline(serde_json::json!({ "type": "string" })),
-        });
-        
+        content.insert(
+            "text/plain".to_string(),
+            MediaType {
+                schema: SchemaRef::Inline(serde_json::json!({ "type": "string" })),
+            },
+        );
+
         let response = ResponseSpec {
             description: "Successful response".to_string(),
             content: Some(content),
-            ..Default::default()
         };
         op.responses.insert("200".to_string(), response);
     }
@@ -291,14 +290,16 @@ impl ResponseModifier for String {
 impl ResponseModifier for &'static str {
     fn update_response(op: &mut Operation) {
         let mut content = std::collections::HashMap::new();
-        content.insert("text/plain".to_string(), MediaType {
-            schema: SchemaRef::Inline(serde_json::json!({ "type": "string" })),
-        });
-        
+        content.insert(
+            "text/plain".to_string(),
+            MediaType {
+                schema: SchemaRef::Inline(serde_json::json!({ "type": "string" })),
+            },
+        );
+
         let response = ResponseSpec {
             description: "Successful response".to_string(),
             content: Some(content),
-            ..Default::default()
         };
         op.responses.insert("200".to_string(), response);
     }
@@ -322,10 +323,12 @@ impl<T: ResponseModifier, E: ResponseModifier> ResponseModifier for Result<T, E>
 // Implement for http::Response<T> - Generic 200 OK
 impl<T> ResponseModifier for http::Response<T> {
     fn update_response(op: &mut Operation) {
-        op.responses.insert("200".to_string(), ResponseSpec {
-            description: "Successful response".to_string(),
-            ..Default::default()
-        });
+        op.responses.insert(
+            "200".to_string(),
+            ResponseSpec {
+                description: "Successful response".to_string(),
+                ..Default::default()
+            },
+        );
     }
 }
-
