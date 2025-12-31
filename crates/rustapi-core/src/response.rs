@@ -96,10 +96,11 @@ impl<T: IntoResponse, E: IntoResponse> IntoResponse for Result<T, E> {
 }
 
 // Implement for ApiError
-// Implement for ApiError
+// Implement for ApiError with environment-aware error masking
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = self.status;
+        // ErrorResponse::from now handles environment-aware masking
         let error_response = ErrorResponse::from(self);
         let body = serde_json::to_vec(&error_response).unwrap_or_else(|_| {
             br#"{"error":{"type":"internal_error","message":"Failed to serialize error"}}"#.to_vec()

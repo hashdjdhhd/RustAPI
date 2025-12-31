@@ -1,7 +1,7 @@
 //! RustApi application builder
 
 use crate::error::Result;
-use crate::middleware::{LayerStack, MiddlewareLayer};
+use crate::middleware::{BodyLimitLayer, LayerStack, MiddlewareLayer, DEFAULT_BODY_LIMIT};
 use crate::router::{MethodRouter, Router};
 use crate::server::Server;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -27,6 +27,7 @@ pub struct RustApi {
     router: Router,
     openapi_spec: rustapi_openapi::OpenApiSpec,
     layers: LayerStack,
+    body_limit: Option<usize>,
 }
 
 impl RustApi {
@@ -48,7 +49,50 @@ impl RustApi {
                 .register::<rustapi_openapi::ValidationErrorSchema>()
                 .register::<rustapi_openapi::FieldErrorSchema>(),
             layers: LayerStack::new(),
+            body_limit: Some(DEFAULT_BODY_LIMIT), // Default 1MB limit
         }
+    }
+
+    /// Set the global body size limit for request bodies
+    ///
+    /// This protects against denial-of-service attacks via large payloads.
+    /// The default limit is 1MB (1024 * 1024 bytes).
+    ///
+    /// # Arguments
+    ///
+    /// * `limit` - Maximum body size in bytes
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use rustapi_rs::prelude::*;
+    ///
+    /// RustApi::new()
+    ///     .body_limit(5 * 1024 * 1024)  // 5MB limit
+    ///     .route("/upload", post(upload_handler))
+    ///     .run("127.0.0.1:8080")
+    ///     .await
+    /// ```
+    pub fn body_limit(mut self, limit: usize) -> Self {
+        self.body_limit = Some(limit);
+        self
+    }
+
+    /// Disable the body size limit
+    ///
+    /// Warning: This removes protection against large payload attacks.
+    /// Only use this if you have other mechanisms to limit request sizes.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// RustApi::new()
+    ///     .no_body_limit()  // Disable body size limit
+    ///     .route("/upload", post(upload_handler))
+    /// ```
+    pub fn no_body_limit(mut self) -> Self {
+        self.body_limit = None;
+        self
     }
 
     /// Add a middleware layer to the application
@@ -336,7 +380,13 @@ impl RustApi {
     ///     .run("127.0.0.1:8080")
     ///     .await
     /// ```
-    pub async fn run(self, addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn run(mut self, addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Apply body limit layer if configured (should be first in the chain)
+        if let Some(limit) = self.body_limit {
+            // Prepend body limit layer so it's the first to process requests
+            self.layers.prepend(Box::new(BodyLimitLayer::new(limit)));
+        }
+        
         let server = Server::new(self.router, self.layers);
         server.run(addr).await
     }

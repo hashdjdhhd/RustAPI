@@ -60,6 +60,12 @@ inventory = "0.3"
 # Validation
 validator = { version = "0.18", features = ["derive"] }
 
+# UUID
+uuid = { version = "1.6", features = ["v4"] }
+
+# Metrics
+prometheus = "0.13"
+
 # OpenAPI
 utoipa = { version = "4.2" }
 
