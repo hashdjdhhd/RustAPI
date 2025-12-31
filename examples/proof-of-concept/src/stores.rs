@@ -81,6 +81,7 @@ impl UserStore {
     }
 
     /// Find user by ID
+    #[allow(dead_code)]
     pub async fn find_by_id(&self, id: u64) -> Option<User> {
         let users = self.users.read().await;
         users.get(&id).cloned()
@@ -151,8 +152,8 @@ impl BookmarkStore {
     /// Update a bookmark
     pub async fn update(&self, id: u64, bookmark: Bookmark) -> Option<Bookmark> {
         let mut bookmarks = self.bookmarks.write().await;
-        if bookmarks.contains_key(&id) {
-            bookmarks.insert(id, bookmark.clone());
+        if let std::collections::hash_map::Entry::Occupied(mut e) = bookmarks.entry(id) {
+            e.insert(bookmark.clone());
             Some(bookmark)
         } else {
             None
@@ -253,8 +254,8 @@ impl CategoryStore {
     /// Update a category
     pub async fn update(&self, id: u64, category: Category) -> Option<Category> {
         let mut categories = self.categories.write().await;
-        if categories.contains_key(&id) {
-            categories.insert(id, category.clone());
+        if let std::collections::hash_map::Entry::Occupied(mut e) = categories.entry(id) {
+            e.insert(category.clone());
             Some(category)
         } else {
             None

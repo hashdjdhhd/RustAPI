@@ -22,6 +22,7 @@ impl SseBroadcaster {
     }
 
     /// Subscribe to events
+    #[allow(dead_code)]
     pub fn subscribe(&self) -> broadcast::Receiver<BookmarkEvent> {
         self.sender.subscribe()
     }
