@@ -39,7 +39,9 @@ use bytes::Bytes;
 use http::{header, StatusCode};
 use http_body_util::Full;
 use rustapi_core::{ApiError, IntoResponse, Response};
-use rustapi_openapi::{MediaType, Operation, OperationModifier, ResponseModifier, ResponseSpec, SchemaRef};
+use rustapi_openapi::{
+    MediaType, Operation, OperationModifier, ResponseModifier, ResponseSpec, SchemaRef,
+};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -135,7 +137,7 @@ fn estimate_tokens(text: &str) -> usize {
     // Simple heuristic: ~4 chars per token
     // Accounts for whitespace and punctuation overhead
     let char_count = text.len();
-    (char_count + 3) / 4 // Round up
+    char_count.div_ceil(4) // Round up
 }
 
 /// Calculate token savings percentage.
@@ -155,8 +157,14 @@ impl<T: Serialize> IntoResponse for LlmResponse<T> {
 
         // Calculate token counts if enabled
         let (json_tokens, toon_tokens, savings) = if self.include_token_headers {
-            let json_tokens = json_result.as_ref().map(|s| estimate_tokens(s)).unwrap_or(0);
-            let toon_tokens = toon_result.as_ref().map(|s| estimate_tokens(s)).unwrap_or(0);
+            let json_tokens = json_result
+                .as_ref()
+                .map(|s| estimate_tokens(s))
+                .unwrap_or(0);
+            let toon_tokens = toon_result
+                .as_ref()
+                .map(|s| estimate_tokens(s))
+                .unwrap_or(0);
             let savings = calculate_savings(json_tokens, toon_tokens);
             (Some(json_tokens), Some(toon_tokens), Some(savings))
         } else {
@@ -187,10 +195,13 @@ impl<T: Serialize> IntoResponse for LlmResponse<T> {
         let mut builder = http::Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, content_type)
-            .header(X_FORMAT_USED, match self.format {
-                OutputFormat::Json => "json",
-                OutputFormat::Toon => "toon",
-            });
+            .header(
+                X_FORMAT_USED,
+                match self.format {
+                    OutputFormat::Json => "json",
+                    OutputFormat::Toon => "toon",
+                },
+            );
 
         // Token counting headers
         if let Some(json_tokens) = json_tokens {

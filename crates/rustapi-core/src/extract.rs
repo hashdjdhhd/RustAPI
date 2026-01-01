@@ -1294,6 +1294,7 @@ mod tests {
     #[test]
     fn test_extension_extractor_missing() {
         #[derive(Clone, Debug)]
+        #[allow(dead_code)]
         struct MyData(String);
 
         let request = create_test_request_with_headers(Method::GET, "/test", vec![]);

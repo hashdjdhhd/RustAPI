@@ -31,7 +31,11 @@ fn create_users(count: usize) -> Vec<User> {
         .map(|i| User {
             id: i as u64,
             name: format!("User{}", i),
-            role: if i % 3 == 0 { "admin".into() } else { "user".into() },
+            role: if i % 3 == 0 {
+                "admin".into()
+            } else {
+                "user".into()
+            },
             active: i % 2 == 0,
         })
         .collect()
@@ -103,8 +107,8 @@ fn benchmark_output_size(c: &mut Criterion) {
         );
 
         // Estimate tokens (~4 chars per token)
-        let json_tokens = (json_str.len() + 3) / 4;
-        let toon_tokens = (toon_str.len() + 3) / 4;
+        let json_tokens = json_str.len().div_ceil(4);
+        let toon_tokens = toon_str.len().div_ceil(4);
         println!("JSON tokens (est): {}", json_tokens);
         println!("TOON tokens (est): {}", toon_tokens);
         println!(

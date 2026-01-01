@@ -363,7 +363,7 @@ mod tests {
         let response = handler();
 
         let http_response = crate::response::IntoResponse::into_response(response);
-        let body = http_response.into_body();
+        let _body = http_response.into_body();
 
         // The body should contain rustapi_info metric
         // We can't easily read the body here, but we verified the metric is registered
