@@ -261,7 +261,7 @@ impl RustApi {
                 format!("/{}", route.path)
             };
 
-            let entry = by_path.entry(path).or_insert_with(MethodRouter::new);
+            let entry = by_path.entry(path).or_default();
             entry.insert_boxed_with_operation(method_enum, route.handler, route.operation);
         }
 
@@ -763,6 +763,12 @@ pub struct RustApiConfig {
     layers: LayerStack,
 }
 
+impl Default for RustApiConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RustApiConfig {
     pub fn new() -> Self {
         Self {
@@ -840,7 +846,7 @@ impl RustApiConfig {
 
         // Apply layers
         // Note: layers are applied in reverse order in RustApi::layer logic (pushing to vec)
-        app.layers.extend(self.layers.into_iter());
+        app.layers.extend(self.layers);
 
         app
     }
