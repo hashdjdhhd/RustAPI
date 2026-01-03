@@ -10,6 +10,9 @@ use crate::stores::AppState;
 use crate::{JWT_SECRET, TOKEN_EXPIRY_SECS};
 
 /// Register a new user
+#[rustapi_rs::post("/auth/register")]
+#[rustapi_rs::tag("Auth")]
+#[rustapi_rs::summary("Register")]
 async fn register(
     State(state): State<Arc<AppState>>,
     ValidatedJson(body): ValidatedJson<RegisterRequest>,
@@ -59,6 +62,9 @@ async fn register(
 }
 
 /// Login with email and password
+#[rustapi_rs::post("/auth/login")]
+#[rustapi_rs::tag("Auth")]
+#[rustapi_rs::summary("Login")]
 async fn login(
     State(state): State<Arc<AppState>>,
     ValidatedJson(body): ValidatedJson<LoginRequest>,
@@ -102,13 +108,4 @@ async fn login(
             email: user.email,
         },
     }))
-}
-
-// Route functions
-pub fn register_route() -> Route {
-    post_route("/auth/register", register)
-}
-
-pub fn login_route() -> Route {
-    post_route("/auth/login", login)
 }

@@ -151,6 +151,9 @@ async fn login(
 // ============================================
 
 /// Get current user's profile (requires authentication)
+#[rustapi_rs::get("/protected/profile")]
+#[rustapi_rs::tag("Protected")]
+#[rustapi_rs::summary("Get Profile")]
 async fn get_profile(AuthUser(claims): AuthUser<Claims>) -> Json<UserProfile> {
     Json(UserProfile {
         user_id: claims.sub,
@@ -160,6 +163,9 @@ async fn get_profile(AuthUser(claims): AuthUser<Claims>) -> Json<UserProfile> {
 }
 
 /// Admin-only endpoint
+#[rustapi_rs::get("/protected/admin")]
+#[rustapi_rs::tag("Protected")]
+#[rustapi_rs::summary("Admin Only")]
 async fn admin_only(AuthUser(claims): AuthUser<Claims>) -> Result<Json<Message>, ApiError> {
     if claims.role != "admin" {
         return Err(ApiError::forbidden("Admin access required"));
@@ -171,6 +177,9 @@ async fn admin_only(AuthUser(claims): AuthUser<Claims>) -> Result<Json<Message>,
 }
 
 /// Protected data endpoint
+#[rustapi_rs::get("/protected/data")]
+#[rustapi_rs::tag("Protected")]
+#[rustapi_rs::summary("Protected Data")]
 async fn get_protected_data(AuthUser(claims): AuthUser<Claims>) -> Json<Message> {
     Json(Message {
         message: format!("Secret data for user: {}", claims.username),
@@ -203,7 +212,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Create the app with JWT middleware for protected routes
     // Public routes (/health, /auth/login, /) are excluded from JWT validation
     // Docs has its own Basic Auth protection
-    let app = RustApi::new()
+    // Phase 6 / zero-config: routes + schemas are auto-registered via macros.
+    // We use `config().build()` to auto-mount routes first, then attach docs with Basic Auth.
+    let app = RustApi::config()
+        .docs_enabled(false)
         .body_limit(1024 * 1024) // 1MB limit
         .layer(RequestIdLayer::new())
         .layer(TracingLayer::new())
@@ -216,18 +228,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "/auth/login",
             "/",
         ]))
-        .register_schema::<LoginRequest>()
-        .register_schema::<LoginResponse>()
-        .register_schema::<UserProfile>()
-        .register_schema::<Message>()
-        // Public routes
-        .mount_route(welcome_route())
-        .mount_route(health_route())
-        .mount_route(login_route())
-        // Protected routes
-        .route("/protected/profile", get(get_profile))
-        .route("/protected/admin", get(admin_only))
-        .route("/protected/data", get(get_protected_data))
+        .build()
         // Docs with Basic Auth protection
         .docs_with_auth("/docs", "docs", "docs123");
 

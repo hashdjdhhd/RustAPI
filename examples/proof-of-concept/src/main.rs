@@ -62,9 +62,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize application state
     let state = Arc::new(AppState::new());
 
-    // Create the app
-    let app = RustApi::new()
-        .state(state)
+    // Phase 6 / zero-config: routes + schemas are auto-registered via macros.
+    // We use `config()` so we can attach layers/body limit while still using auto routes.
+    let app = RustApi::config()
         .body_limit(1024 * 1024) // 1MB limit
         .layer(RequestIdLayer::new())
         .layer(TracingLayer::new())
@@ -77,42 +77,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "/auth/login",
             "/static",
         ]))
-        // Register schemas
-        .register_schema::<models::RegisterRequest>()
-        .register_schema::<models::LoginRequest>()
-        .register_schema::<models::AuthResponse>()
-        .register_schema::<models::UserInfo>()
-        .register_schema::<models::CreateBookmarkRequest>()
-        .register_schema::<models::UpdateBookmarkRequest>()
-        .register_schema::<models::BookmarkResponse>()
-        .register_schema::<models::CreateCategoryRequest>()
-        .register_schema::<models::UpdateCategoryRequest>()
-        .register_schema::<models::CategoryResponse>()
-        .register_schema::<models::CategoryListResponse>()
-        .register_schema::<models::ExportResponse>()
-        .register_schema::<models::ErrorResponse>()
-        // Auth routes
-        .mount_route(handlers::auth::register_route())
-        .mount_route(handlers::auth::login_route())
-        // Bookmark routes
-        .mount_route(handlers::bookmarks::list_bookmarks_route())
-        .mount_route(handlers::bookmarks::create_bookmark_route())
-        .mount_route(handlers::bookmarks::get_bookmark_route())
-        .mount_route(handlers::bookmarks::update_bookmark_route())
-        .mount_route(handlers::bookmarks::delete_bookmark_route())
-        .mount_route(handlers::bookmarks::export_bookmarks_route())
-        .mount_route(handlers::bookmarks::import_bookmarks_route())
-        // Category routes
-        .mount_route(handlers::categories::list_categories_route())
-        .mount_route(handlers::categories::create_category_route())
-        .mount_route(handlers::categories::update_category_route())
-        .mount_route(handlers::categories::delete_category_route())
-        // SSE events
-        .mount_route(handlers::events::events_route())
-        // Health check
-        .mount_route(handlers::health_route())
-        // Docs
-        .docs("/docs");
+        .build()
+        .state(state);
 
     app.run("127.0.0.1:8080").await
 }

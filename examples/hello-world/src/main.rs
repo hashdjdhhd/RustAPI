@@ -117,15 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("  GET  /docs      - Swagger UI");
     println!();
 
-    RustApi::new()
-        .register_schema::<UserResponse>()
-        .register_schema::<CreateUser>()
-        .mount_route(hello_route())
-        .mount_route(health_route())
-        .mount_route(get_user_route())
-        .mount_route(create_user_route())
-        .mount_route(search_users_route())
-        .docs("/docs") // Enable Swagger UI!
-        .run("127.0.0.1:8080")
-        .await
+    // Phase 6 / zero-config: routes + schemas are auto-registered via macros.
+    // Swagger UI is enabled at /docs by default (when built with swagger-ui feature).
+    RustApi::auto().run("127.0.0.1:8080").await
 }

@@ -129,6 +129,9 @@ fn get_sample_users() -> Vec<User> {
 // --- JSON Handlers (for comparison) ---
 
 /// Get all users as JSON
+#[rustapi_rs::get("/json/users")]
+#[rustapi_rs::tag("JSON")]
+#[rustapi_rs::summary("List Users (JSON)")]
 async fn get_users_json() -> Json<UsersResponse> {
     let users = get_sample_users();
     let total = users.len();
@@ -136,6 +139,9 @@ async fn get_users_json() -> Json<UsersResponse> {
 }
 
 /// Create a user (JSON input)
+#[rustapi_rs::post("/json/users")]
+#[rustapi_rs::tag("JSON")]
+#[rustapi_rs::summary("Create User (JSON)")]
 async fn create_user_json(Json(input): Json<CreateUser>) -> Created<User> {
     let user = User {
         id: 4,
@@ -151,6 +157,9 @@ async fn create_user_json(Json(input): Json<CreateUser>) -> Created<User> {
 /// Get all users as TOON format
 ///
 /// Returns users in TOON format, reducing token count for LLM processing.
+#[rustapi_rs::get("/toon/users")]
+#[rustapi_rs::tag("TOON")]
+#[rustapi_rs::summary("List Users (TOON)")]
 async fn get_users_toon() -> Toon<UsersResponse> {
     let users = get_sample_users();
     let total = users.len();
@@ -158,6 +167,9 @@ async fn get_users_toon() -> Toon<UsersResponse> {
 }
 
 /// Get a single user as TOON
+#[rustapi_rs::get("/toon/users/{id}")]
+#[rustapi_rs::tag("TOON")]
+#[rustapi_rs::summary("Get User (TOON)")]
 async fn get_user_toon(id: u64) -> Result<Toon<User>> {
     let users = get_sample_users();
     let user = users
@@ -170,6 +182,9 @@ async fn get_user_toon(id: u64) -> Result<Toon<User>> {
 /// Create a user (TOON input) -> TOON output
 ///
 /// Demonstrates full TOON round-trip: parse TOON request, return TOON response.
+#[rustapi_rs::post("/toon/users")]
+#[rustapi_rs::tag("TOON")]
+#[rustapi_rs::summary("Create User (TOON)")]
 async fn create_user_toon(Toon(input): Toon<CreateUser>) -> Toon<User> {
     let user = User {
         id: 4,
@@ -188,6 +203,9 @@ async fn create_user_toon(Toon(input): Toon<CreateUser>) -> Toon<User> {
 /// - `Accept: application/json` → JSON response
 /// - `Accept: application/toon` → TOON response
 /// - Default → JSON response
+#[rustapi_rs::get("/users")]
+#[rustapi_rs::tag("Negotiation")]
+#[rustapi_rs::summary("List Users (Negotiated)")]
 async fn get_users_negotiate(accept: AcceptHeader) -> Negotiate<UsersResponse> {
     let users = get_sample_users();
     let total = users.len();
@@ -195,6 +213,9 @@ async fn get_users_negotiate(accept: AcceptHeader) -> Negotiate<UsersResponse> {
 }
 
 /// Get a single user with content negotiation
+#[rustapi_rs::get("/users/{id}")]
+#[rustapi_rs::tag("Negotiation")]
+#[rustapi_rs::summary("Get User (Negotiated)")]
 async fn get_user_negotiate(id: u64, accept: AcceptHeader) -> Result<Negotiate<User>> {
     let users = get_sample_users();
     let user = users
@@ -213,6 +234,9 @@ async fn get_user_negotiate(id: u64, accept: AcceptHeader) -> Result<Negotiate<U
 /// - `X-Token-Count-TOON`: Estimated tokens in TOON format
 /// - `X-Token-Savings`: Percentage saved with TOON
 /// - `X-Format-Used`: Which format was returned
+#[rustapi_rs::get("/llm/users")]
+#[rustapi_rs::tag("LLM")]
+#[rustapi_rs::summary("List Users (LLM)")]
 async fn get_users_llm(accept: AcceptHeader) -> LlmResponse<UsersResponse> {
     let users = get_sample_users();
     let total = users.len();
@@ -220,6 +244,9 @@ async fn get_users_llm(accept: AcceptHeader) -> LlmResponse<UsersResponse> {
 }
 
 /// Get a single user with LLM optimization
+#[rustapi_rs::get("/llm/users/{id}")]
+#[rustapi_rs::tag("LLM")]
+#[rustapi_rs::summary("Get User (LLM)")]
 async fn get_user_llm(id: u64, accept: AcceptHeader) -> Result<LlmResponse<User>> {
     let users = get_sample_users();
     let user = users
@@ -230,6 +257,9 @@ async fn get_user_llm(id: u64, accept: AcceptHeader) -> Result<LlmResponse<User>
 }
 
 /// Get users optimized for LLM - always TOON format
+#[rustapi_rs::get("/llm/toon/users")]
+#[rustapi_rs::tag("LLM")]
+#[rustapi_rs::summary("List Users (LLM TOON)")]
 async fn get_users_llm_toon() -> LlmResponse<UsersResponse> {
     let users = get_sample_users();
     let total = users.len();
@@ -239,6 +269,9 @@ async fn get_users_llm_toon() -> LlmResponse<UsersResponse> {
 // --- Info/Comparison Handlers ---
 
 /// Compare JSON vs TOON for the same data
+#[rustapi_rs::get("/compare")]
+#[rustapi_rs::tag("Info")]
+#[rustapi_rs::summary("Compare JSON vs TOON")]
 async fn compare_formats() -> Json<ComparisonResult> {
     let users = get_sample_users();
     let response = UsersResponse { users, total: 3 };
@@ -262,6 +295,9 @@ async fn compare_formats() -> Json<ComparisonResult> {
 }
 
 /// API info
+#[rustapi_rs::get("/")]
+#[rustapi_rs::tag("Info")]
+#[rustapi_rs::summary("Index")]
 async fn index() -> Json<Message> {
     Json(Message {
         content: "TOON Format API Example - Use /compare to see JSON vs TOON comparison"
@@ -271,6 +307,9 @@ async fn index() -> Json<Message> {
 }
 
 /// Get TOON format documentation
+#[rustapi_rs::get("/toon-docs")]
+#[rustapi_rs::tag("Info")]
+#[rustapi_rs::summary("TOON Docs")]
 async fn toon_docs() -> Html<String> {
     // Convert markdown to simple HTML
     let html = format!(
@@ -334,29 +373,9 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sy
         "TOON Format API Example demonstrating LLM-optimized data serialization.",
     );
 
-    RustApi::new()
-        // Info endpoints
-        .route("/", get(index))
-        .route("/toon-docs", get(toon_docs))
-        .route("/compare", get(compare_formats))
-        // JSON endpoints (for comparison)
-        .route("/json/users", get(get_users_json))
-        .route("/json/users", post(create_user_json))
-        // TOON endpoints
-        .route("/toon/users", get(get_users_toon))
-        .route("/toon/users/:id", get(get_user_toon))
-        .route("/toon/users", post(create_user_toon))
-        // Content negotiation endpoints
-        .route("/users", get(get_users_negotiate))
-        .route("/users/:id", get(get_user_negotiate))
-        // LLM-optimized endpoints (with token counting headers)
-        .route("/llm/users", get(get_users_llm))
-        .route("/llm/users/:id", get(get_user_llm))
-        .route("/llm/toon/users", get(get_users_llm_toon))
-        // OpenAPI/Swagger documentation
-        .docs("/docs")
-        .run("127.0.0.1:8080")
-        .await?;
+    // Phase 6 / zero-config: routes + schemas are auto-registered via macros.
+    // Swagger UI is enabled at /docs by default (when built with swagger-ui feature).
+    RustApi::auto().run("127.0.0.1:8080").await?;
 
     Ok(())
 }

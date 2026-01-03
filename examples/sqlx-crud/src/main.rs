@@ -104,6 +104,9 @@ async fn init_db(pool: &DbPool) -> Result<(), sqlx::Error> {
 // ============================================
 
 /// List all users
+#[rustapi_rs::get("/users")]
+#[rustapi_rs::tag("Users")]
+#[rustapi_rs::summary("List Users")]
 async fn list_users(State(pool): State<Arc<DbPool>>) -> Result<Json<UsersResponse>> {
     let users = sqlx::query_as::<_, User>("SELECT id, name, email FROM users")
         .fetch_all(pool.as_ref())
@@ -114,6 +117,9 @@ async fn list_users(State(pool): State<Arc<DbPool>>) -> Result<Json<UsersRespons
 }
 
 /// Get a user by ID
+#[rustapi_rs::get("/users/{id}")]
+#[rustapi_rs::tag("Users")]
+#[rustapi_rs::summary("Get User")]
 async fn get_user(State(pool): State<Arc<DbPool>>, Path(id): Path<i64>) -> Result<Json<User>> {
     let user = sqlx::query_as::<_, User>("SELECT id, name, email FROM users WHERE id = ?")
         .bind(id)
@@ -125,6 +131,9 @@ async fn get_user(State(pool): State<Arc<DbPool>>, Path(id): Path<i64>) -> Resul
 }
 
 /// Create a new user
+#[rustapi_rs::post("/users")]
+#[rustapi_rs::tag("Users")]
+#[rustapi_rs::summary("Create User")]
 async fn create_user(
     State(pool): State<Arc<DbPool>>,
     Json(body): Json<CreateUserRequest>,
@@ -146,6 +155,9 @@ async fn create_user(
 }
 
 /// Update a user
+#[rustapi_rs::put("/users/{id}")]
+#[rustapi_rs::tag("Users")]
+#[rustapi_rs::summary("Update User")]
 async fn update_user(
     State(pool): State<Arc<DbPool>>,
     Path(id): Path<i64>,
@@ -174,6 +186,9 @@ async fn update_user(
 }
 
 /// Delete a user
+#[rustapi_rs::delete("/users/{id}")]
+#[rustapi_rs::tag("Users")]
+#[rustapi_rs::summary("Delete User")]
 async fn delete_user(State(pool): State<Arc<DbPool>>, Path(id): Path<i64>) -> Result<NoContent> {
     // Check if user exists first
     sqlx::query_as::<_, User>("SELECT id, name, email FROM users WHERE id = ?")
@@ -195,6 +210,9 @@ async fn delete_user(State(pool): State<Arc<DbPool>>, Path(id): Path<i64>) -> Re
 ///
 /// This demonstrates transaction handling - if any insert fails,
 /// all inserts are rolled back.
+#[rustapi_rs::post("/users/batch")]
+#[rustapi_rs::tag("Users")]
+#[rustapi_rs::summary("Batch Create Users")]
 async fn batch_create_users(
     State(pool): State<Arc<DbPool>>,
     Json(body): Json<BatchCreateRequest>,
@@ -265,14 +283,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("  curl http://127.0.0.1:8080/users");
     println!();
 
-    RustApi::new()
-        .state(pool)
-        .route("/users", get(list_users))
-        .route("/users", post(create_user))
-        .route("/users/:id", get(get_user))
-        .route("/users/:id", put(update_user))
-        .route("/users/:id", delete(delete_user))
-        .route("/users/batch", post(batch_create_users))
-        .run("127.0.0.1:8080")
-        .await
+    // Phase 6 / zero-config: routes + schemas are auto-registered via macros.
+    // Swagger UI is enabled at /docs by default (when built with swagger-ui feature).
+    RustApi::auto().state(pool).run("127.0.0.1:8080").await
 }

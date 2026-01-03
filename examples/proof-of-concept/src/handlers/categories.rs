@@ -10,6 +10,9 @@ use crate::models::{
 use crate::stores::AppState;
 
 /// List categories
+#[rustapi_rs::get("/categories")]
+#[rustapi_rs::tag("Categories")]
+#[rustapi_rs::summary("List Categories")]
 async fn list_categories(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -28,6 +31,9 @@ async fn list_categories(
 }
 
 /// Create a new category
+#[rustapi_rs::post("/categories")]
+#[rustapi_rs::tag("Categories")]
+#[rustapi_rs::summary("Create Category")]
 async fn create_category(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -59,6 +65,9 @@ async fn create_category(
 }
 
 /// Update a category
+#[rustapi_rs::put("/categories/{id}")]
+#[rustapi_rs::tag("Categories")]
+#[rustapi_rs::summary("Update Category")]
 async fn update_category(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -102,6 +111,9 @@ async fn update_category(
 }
 
 /// Delete a category
+#[rustapi_rs::delete("/categories/{id}")]
+#[rustapi_rs::tag("Categories")]
+#[rustapi_rs::summary("Delete Category")]
 async fn delete_category(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -127,21 +139,4 @@ async fn delete_category(
     state.categories.delete(id).await;
 
     Ok(NoContent)
-}
-
-// Route functions
-pub fn list_categories_route() -> Route {
-    get_route("/categories", list_categories)
-}
-
-pub fn create_category_route() -> Route {
-    post_route("/categories", create_category)
-}
-
-pub fn update_category_route() -> Route {
-    put_route("/categories/{id}", update_category)
-}
-
-pub fn delete_category_route() -> Route {
-    delete_route("/categories/{id}", delete_category)
 }

@@ -322,24 +322,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!();
     println!("Server running at http://127.0.0.1:8080");
 
-    RustApi::new()
+    // Phase 6 / zero-config: routes + schemas are auto-registered via macros.
+    // Swagger UI is enabled at /docs by default (when built with swagger-ui feature).
+    RustApi::auto()
         .state(store)
         .body_limit(1024 * 1024) // 1MB limit
         .layer(RequestIdLayer::new())
         .layer(TracingLayer::new())
-        .register_schema::<Task>()
-        .register_schema::<CreateTask>()
-        .register_schema::<UpdateTask>()
-        .register_schema::<PatchTask>()
-        .register_schema::<PaginatedTasks>()
-        .mount_route(list_tasks_route())
-        .mount_route(get_task_route())
-        .mount_route(create_task_route())
-        .mount_route(update_task_route())
-        .mount_route(patch_task_route())
-        .mount_route(delete_task_route())
-        .mount_route(health_route())
-        .docs("/docs")
         .run("127.0.0.1:8080")
         .await
 }

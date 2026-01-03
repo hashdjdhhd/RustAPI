@@ -11,6 +11,9 @@ use crate::models::{
 use crate::stores::AppState;
 
 /// List bookmarks with pagination and filtering
+#[rustapi_rs::get("/bookmarks")]
+#[rustapi_rs::tag("Bookmarks")]
+#[rustapi_rs::summary("List Bookmarks")]
 async fn list_bookmarks(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -66,6 +69,9 @@ async fn list_bookmarks(
 }
 
 /// Create a new bookmark
+#[rustapi_rs::post("/bookmarks")]
+#[rustapi_rs::tag("Bookmarks")]
+#[rustapi_rs::summary("Create Bookmark")]
 async fn create_bookmark(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -98,6 +104,9 @@ async fn create_bookmark(
 }
 
 /// Get a single bookmark by ID
+#[rustapi_rs::get("/bookmarks/{id}")]
+#[rustapi_rs::tag("Bookmarks")]
+#[rustapi_rs::summary("Get Bookmark")]
 async fn get_bookmark(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -120,6 +129,9 @@ async fn get_bookmark(
 }
 
 /// Update a bookmark
+#[rustapi_rs::put("/bookmarks/{id}")]
+#[rustapi_rs::tag("Bookmarks")]
+#[rustapi_rs::summary("Update Bookmark")]
 async fn update_bookmark(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -174,6 +186,9 @@ async fn update_bookmark(
 }
 
 /// Delete a bookmark
+#[rustapi_rs::delete("/bookmarks/{id}")]
+#[rustapi_rs::tag("Bookmarks")]
+#[rustapi_rs::summary("Delete Bookmark")]
 async fn delete_bookmark(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -203,6 +218,9 @@ async fn delete_bookmark(
 }
 
 /// Export bookmarks as JSON
+#[rustapi_rs::get("/bookmarks/export")]
+#[rustapi_rs::tag("Bookmarks")]
+#[rustapi_rs::summary("Export Bookmarks")]
 async fn export_bookmarks(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -235,6 +253,9 @@ async fn export_bookmarks(
 }
 
 /// Import bookmarks from JSON
+#[rustapi_rs::post("/bookmarks/import")]
+#[rustapi_rs::tag("Bookmarks")]
+#[rustapi_rs::summary("Import Bookmarks")]
 async fn import_bookmarks(
     State(state): State<Arc<AppState>>,
     AuthUser(claims): AuthUser<Claims>,
@@ -293,33 +314,4 @@ async fn import_bookmarks(
         skipped,
         errors,
     })
-}
-
-// Route functions
-pub fn list_bookmarks_route() -> Route {
-    get_route("/bookmarks", list_bookmarks)
-}
-
-pub fn create_bookmark_route() -> Route {
-    post_route("/bookmarks", create_bookmark)
-}
-
-pub fn get_bookmark_route() -> Route {
-    get_route("/bookmarks/{id}", get_bookmark)
-}
-
-pub fn update_bookmark_route() -> Route {
-    put_route("/bookmarks/{id}", update_bookmark)
-}
-
-pub fn delete_bookmark_route() -> Route {
-    delete_route("/bookmarks/{id}", delete_bookmark)
-}
-
-pub fn export_bookmarks_route() -> Route {
-    get_route("/bookmarks/export", export_bookmarks)
-}
-
-pub fn import_bookmarks_route() -> Route {
-    post_route("/bookmarks/import", import_bookmarks)
 }

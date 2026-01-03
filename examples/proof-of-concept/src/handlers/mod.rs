@@ -10,13 +10,12 @@ use rustapi_rs::prelude::*;
 use crate::models::HealthResponse;
 
 /// Health check endpoint
+#[rustapi_rs::get("/health")]
+#[rustapi_rs::tag("System")]
+#[rustapi_rs::summary("Health Check")]
 async fn health() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     })
-}
-
-pub fn health_route() -> Route {
-    get_route("/health", health)
 }
