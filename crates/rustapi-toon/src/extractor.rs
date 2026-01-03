@@ -6,7 +6,9 @@ use bytes::Bytes;
 use http::{header, StatusCode};
 use http_body_util::Full;
 use rustapi_core::{ApiError, FromRequest, IntoResponse, Request, Response, Result};
-use rustapi_openapi::{MediaType, Operation, OperationModifier, ResponseModifier, ResponseSpec, SchemaRef};
+use rustapi_openapi::{
+    MediaType, Operation, OperationModifier, ResponseModifier, ResponseSpec, SchemaRef,
+};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -90,8 +92,8 @@ impl<T: DeserializeOwned + Send> FromRequest for Toon<T> {
         let body_str =
             std::str::from_utf8(&body).map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-        let value: T = toon_format::decode_default(body_str)
-            .map_err(|e| ToonError::Decode(e.to_string()))?;
+        let value: T =
+            toon_format::decode_default(body_str).map_err(|e| ToonError::Decode(e.to_string()))?;
 
         Ok(Toon(value))
     }

@@ -35,9 +35,7 @@ impl From<toon_format::ToonError> for ToonError {
 impl From<ToonError> for ApiError {
     fn from(err: ToonError) -> Self {
         match err {
-            ToonError::Encode(msg) => {
-                ApiError::internal(format!("Failed to encode TOON: {}", msg))
-            }
+            ToonError::Encode(msg) => ApiError::internal(format!("Failed to encode TOON: {}", msg)),
             ToonError::Decode(msg) => ApiError::bad_request(format!("Invalid TOON: {}", msg)),
             ToonError::InvalidContentType => ApiError::bad_request(
                 "Invalid content type: expected application/toon or text/toon",

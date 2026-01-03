@@ -8,7 +8,9 @@ struct Message {
 
 #[rustapi_rs::get("/hello/{name}")]
 async fn hello(Path(name): Path<String>) -> Json<Message> {
-    Json(Message { greeting: format!("Hello, {name}!") })
+    Json(Message {
+        greeting: format!("Hello, {name}!"),
+    })
 }
 
 #[tokio::main]

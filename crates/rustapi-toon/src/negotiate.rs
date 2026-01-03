@@ -8,7 +8,9 @@ use bytes::Bytes;
 use http::{header, StatusCode};
 use http_body_util::Full;
 use rustapi_core::{ApiError, FromRequestParts, IntoResponse, Request, Response};
-use rustapi_openapi::{MediaType, Operation, OperationModifier, ResponseModifier, ResponseSpec, SchemaRef};
+use rustapi_openapi::{
+    MediaType, Operation, OperationModifier, ResponseModifier, ResponseSpec, SchemaRef,
+};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -94,12 +96,19 @@ impl AcceptHeader {
                     (part.to_string(), 1.0)
                 };
 
-                Some(MediaTypeEntry { media_type, quality })
+                Some(MediaTypeEntry {
+                    media_type,
+                    quality,
+                })
             })
             .collect();
 
         // Sort by quality (descending)
-        entries.sort_by(|a, b| b.quality.partial_cmp(&a.quality).unwrap_or(std::cmp::Ordering::Equal));
+        entries.sort_by(|a, b| {
+            b.quality
+                .partial_cmp(&a.quality)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Determine preferred format
         let preferred = Self::determine_format(&entries);
@@ -114,23 +123,23 @@ impl AcceptHeader {
     fn determine_format(entries: &[MediaTypeEntry]) -> OutputFormat {
         for entry in entries {
             let mt = entry.media_type.to_lowercase();
-            
+
             // Check for TOON
             if mt == TOON_CONTENT_TYPE || mt == TOON_CONTENT_TYPE_TEXT {
                 return OutputFormat::Toon;
             }
-            
+
             // Check for JSON
             if mt == JSON_CONTENT_TYPE || mt == "application/json" || mt == "text/json" {
                 return OutputFormat::Json;
             }
-            
+
             // Wildcard accepts anything, default to JSON
             if mt == "*/*" || mt == "application/*" || mt == "text/*" {
                 return OutputFormat::Json;
             }
         }
-        
+
         // Default to JSON
         OutputFormat::Json
     }
@@ -139,7 +148,10 @@ impl AcceptHeader {
     pub fn accepts_toon(&self) -> bool {
         self.media_types.iter().any(|e| {
             let mt = e.media_type.to_lowercase();
-            mt == TOON_CONTENT_TYPE || mt == TOON_CONTENT_TYPE_TEXT || mt == "*/*" || mt == "application/*"
+            mt == TOON_CONTENT_TYPE
+                || mt == TOON_CONTENT_TYPE_TEXT
+                || mt == "*/*"
+                || mt == "application/*"
         })
     }
 
@@ -160,7 +172,7 @@ impl FromRequestParts for AcceptHeader {
             .and_then(|v| v.to_str().ok())
             .map(AcceptHeader::parse)
             .unwrap_or_default();
-        
+
         Ok(accept)
     }
 }
@@ -235,32 +247,28 @@ impl<T> Negotiate<T> {
 impl<T: Serialize> IntoResponse for Negotiate<T> {
     fn into_response(self) -> Response {
         match self.format {
-            OutputFormat::Json => {
-                match serde_json::to_vec(&self.data) {
-                    Ok(body) => http::Response::builder()
-                        .status(StatusCode::OK)
-                        .header(header::CONTENT_TYPE, JSON_CONTENT_TYPE)
-                        .body(Full::new(Bytes::from(body)))
-                        .unwrap(),
-                    Err(err) => {
-                        let error = ApiError::internal(format!("JSON serialization error: {}", err));
-                        error.into_response()
-                    }
+            OutputFormat::Json => match serde_json::to_vec(&self.data) {
+                Ok(body) => http::Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, JSON_CONTENT_TYPE)
+                    .body(Full::new(Bytes::from(body)))
+                    .unwrap(),
+                Err(err) => {
+                    let error = ApiError::internal(format!("JSON serialization error: {}", err));
+                    error.into_response()
                 }
-            }
-            OutputFormat::Toon => {
-                match toon_format::encode_default(&self.data) {
-                    Ok(body) => http::Response::builder()
-                        .status(StatusCode::OK)
-                        .header(header::CONTENT_TYPE, TOON_CONTENT_TYPE)
-                        .body(Full::new(Bytes::from(body)))
-                        .unwrap(),
-                    Err(err) => {
-                        let error = ApiError::internal(format!("TOON serialization error: {}", err));
-                        error.into_response()
-                    }
+            },
+            OutputFormat::Toon => match toon_format::encode_default(&self.data) {
+                Ok(body) => http::Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, TOON_CONTENT_TYPE)
+                    .body(Full::new(Bytes::from(body)))
+                    .unwrap(),
+                Err(err) => {
+                    let error = ApiError::internal(format!("TOON serialization error: {}", err));
+                    error.into_response()
                 }
-            }
+            },
         }
     }
 }
@@ -275,7 +283,7 @@ impl<T: Send> OperationModifier for Negotiate<T> {
 impl<T: Serialize> ResponseModifier for Negotiate<T> {
     fn update_response(op: &mut Operation) {
         let mut content = HashMap::new();
-        
+
         // JSON response
         content.insert(
             JSON_CONTENT_TYPE.to_string(),
@@ -286,7 +294,7 @@ impl<T: Serialize> ResponseModifier for Negotiate<T> {
                 })),
             },
         );
-        
+
         // TOON response
         content.insert(
             TOON_CONTENT_TYPE.to_string(),
@@ -299,7 +307,8 @@ impl<T: Serialize> ResponseModifier for Negotiate<T> {
         );
 
         let response = ResponseSpec {
-            description: "Content-negotiated response (JSON or TOON based on Accept header)".to_string(),
+            description: "Content-negotiated response (JSON or TOON based on Accept header)"
+                .to_string(),
             content: Some(content),
         };
         op.responses.insert("200".to_string(), response);

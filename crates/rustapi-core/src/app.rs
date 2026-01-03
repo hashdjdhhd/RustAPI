@@ -275,7 +275,11 @@ impl RustApi {
             self = self.route(&path, method_router);
         }
 
-        tracing::info!(paths = path_count, routes = route_count, "Auto-registered routes");
+        tracing::info!(
+            paths = path_count,
+            routes = route_count,
+            "Auto-registered routes"
+        );
 
         // Apply any auto-registered schemas.
         crate::auto_schema::apply_auto_schemas(&mut self.openapi_spec);

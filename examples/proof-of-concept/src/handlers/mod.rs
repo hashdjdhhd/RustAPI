@@ -14,8 +14,8 @@ use crate::models::HealthResponse;
 #[rustapi_rs::tag("System")]
 #[rustapi_rs::summary("Frontend")]
 async fn index() -> Html<&'static str> {
-        Html(
-                r#"<!doctype html>
+    Html(
+        r#"<!doctype html>
 <html lang=\"en\">
     <head>
         <meta charset=\"utf-8\" />
@@ -28,7 +28,7 @@ async fn index() -> Html<&'static str> {
         <p>Health: <a href=\"/health\">/health</a></p>
     </body>
 </html>"#,
-        )
+    )
 }
 
 /// Health check endpoint

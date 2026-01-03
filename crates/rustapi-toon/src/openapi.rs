@@ -103,7 +103,7 @@ pub fn token_headers_schema() -> serde_json::Value {
 pub fn format_comparison_example<T: serde::Serialize>(data: &T) -> serde_json::Value {
     let json_str = serde_json::to_string_pretty(data).unwrap_or_default();
     let toon_str = toon_format::encode_default(data).unwrap_or_default();
-    
+
     let json_bytes = json_str.len();
     let toon_bytes = toon_str.len();
     let json_tokens = json_bytes / 4;
@@ -113,7 +113,7 @@ pub fn format_comparison_example<T: serde::Serialize>(data: &T) -> serde_json::V
     } else {
         0.0
     };
-    
+
     serde_json::json!({
         "json": {
             "content": json_str,
@@ -151,26 +151,26 @@ pub fn api_description_with_toon(base_description: &str) -> String {
 mod tests {
     use super::*;
     use serde::Serialize;
-    
+
     #[derive(Serialize)]
     struct TestUser {
         id: u64,
         name: String,
     }
-    
+
     #[test]
     fn test_toon_schema() {
         let schema = toon_schema();
         assert_eq!(schema["type"], "string");
         assert_eq!(schema["format"], "toon");
     }
-    
+
     #[test]
     fn test_toon_extension() {
         let ext = toon_extension();
         assert!(ext["x-toon-support"]["enabled"].as_bool().unwrap());
     }
-    
+
     #[test]
     fn test_token_headers_schema() {
         let headers = token_headers_schema();
@@ -179,21 +179,30 @@ mod tests {
         assert!(headers["X-Token-Savings"].is_object());
         assert!(headers["X-Format-Used"].is_object());
     }
-    
+
     #[test]
     fn test_format_comparison_example() {
         let users = vec![
-            TestUser { id: 1, name: "Alice".to_string() },
-            TestUser { id: 2, name: "Bob".to_string() },
+            TestUser {
+                id: 1,
+                name: "Alice".to_string(),
+            },
+            TestUser {
+                id: 2,
+                name: "Bob".to_string(),
+            },
         ];
         let comparison = format_comparison_example(&users);
-        
+
         assert!(comparison["json"]["bytes"].as_u64().unwrap() > 0);
         assert!(comparison["toon"]["bytes"].as_u64().unwrap() > 0);
         // TOON should be smaller
-        assert!(comparison["toon"]["bytes"].as_u64().unwrap() < comparison["json"]["bytes"].as_u64().unwrap());
+        assert!(
+            comparison["toon"]["bytes"].as_u64().unwrap()
+                < comparison["json"]["bytes"].as_u64().unwrap()
+        );
     }
-    
+
     #[test]
     fn test_api_description_with_toon() {
         let desc = api_description_with_toon("My API");

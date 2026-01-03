@@ -146,7 +146,9 @@ fn test_openapi_includes_query_params() {
         .expect("Query params should be present");
 
     assert!(
-        params.iter().any(|p| p.location == "query" && p.name == "page"),
+        params
+            .iter()
+            .any(|p| p.location == "query" && p.name == "page"),
         "OpenAPI should include query parameter 'page'"
     );
     assert!(
