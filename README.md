@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 ```toml
 [dependencies]
-rustapi-rs = "0.1.3"
+rustapi-rs = "0.1.4"
 ```
 
 ```rust
@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ### Optional Features
 
 ```toml
-rustapi-rs = { version = "0.1.3", features = ["jwt", "cors", "toon"] }
+rustapi-rs = { version = "0.1.4", features = ["jwt", "cors", "toon"] }
 ```
 
 - `jwt` — JWT authentication
