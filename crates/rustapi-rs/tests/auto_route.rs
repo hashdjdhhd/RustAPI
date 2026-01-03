@@ -66,7 +66,8 @@ struct Pagination {
 }
 
 #[get("/query")]
-async fn query_handler(Query(_p): Query<Pagination>) -> &'static str {
+async fn query_handler(Query(p): Query<Pagination>) -> &'static str {
+    let _ = (&p.page, &p.page_size);
     "ok"
 }
 
