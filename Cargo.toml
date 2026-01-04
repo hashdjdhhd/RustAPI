@@ -14,6 +14,7 @@ members = [
     "examples/auth-api",
     "examples/proof-of-concept",
     "examples/toon-api",
+    "examples/mcp-server",
     "benches/toon_bench",
 ]
 
