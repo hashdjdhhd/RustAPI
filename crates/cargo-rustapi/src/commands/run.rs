@@ -77,14 +77,17 @@ async fn run_with_watch(args: &RunArgs) -> Result<()> {
 
     if check.is_err() || !check.unwrap().status.success() {
         println!("{}", style("cargo-watch not found. Installing...").yellow());
-        
+
         let install = Command::new("cargo")
             .args(["install", "cargo-watch"])
             .status()
             .await?;
 
         if !install.success() {
-            println!("{}", style("Failed to install cargo-watch. Running without watch mode.").yellow());
+            println!(
+                "{}",
+                style("Failed to install cargo-watch. Running without watch mode.").yellow()
+            );
             return run_cargo(args).await;
         }
     }

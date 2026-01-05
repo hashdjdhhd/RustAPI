@@ -48,14 +48,14 @@ impl WebSocket {
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
         let upgrade = WebSocketUpgrade::new(self.sec_key);
-        
+
         // If protocols were requested, select the first one
         let upgrade = if let Some(protocol) = self.protocols.first() {
             upgrade.protocol(protocol)
         } else {
             upgrade
         };
-        
+
         upgrade.on_upgrade(callback)
     }
 
@@ -76,7 +76,7 @@ impl FromRequestParts for WebSocket {
         let method = req.method();
 
         // Validate the upgrade request
-        let sec_key = validate_upgrade_request(method, headers).map_err(|e| ApiError::from(e))?;
+        let sec_key = validate_upgrade_request(method, headers).map_err(ApiError::from)?;
 
         // Parse requested protocols
         let protocols = headers

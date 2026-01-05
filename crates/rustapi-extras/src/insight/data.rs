@@ -67,7 +67,11 @@ pub struct InsightData {
 
 impl InsightData {
     /// Create a new insight entry with required fields.
-    pub fn new(request_id: impl Into<String>, method: impl Into<String>, path: impl Into<String>) -> Self {
+    pub fn new(
+        request_id: impl Into<String>,
+        method: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Self {
         Self {
             request_id: request_id.into(),
             method: method.into(),
@@ -276,7 +280,7 @@ impl InsightStats {
             *stats.requests_by_route.entry(route.clone()).or_insert(0) += 1;
             route_durations
                 .entry(route)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(insight.duration_ms);
 
             // Method tracking
@@ -347,8 +351,12 @@ mod tests {
     fn test_status_categorization() {
         assert!(InsightData::new("", "", "").with_status(200).is_success());
         assert!(InsightData::new("", "", "").with_status(201).is_success());
-        assert!(InsightData::new("", "", "").with_status(404).is_client_error());
-        assert!(InsightData::new("", "", "").with_status(500).is_server_error());
+        assert!(InsightData::new("", "", "")
+            .with_status(404)
+            .is_client_error());
+        assert!(InsightData::new("", "", "")
+            .with_status(500)
+            .is_server_error());
     }
 
     #[test]

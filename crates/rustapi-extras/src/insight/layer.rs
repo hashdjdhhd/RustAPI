@@ -268,8 +268,8 @@ impl MiddlewareLayer for InsightLayer {
             let client_ip = InsightLayer::extract_client_ip(&req);
             let query_params = InsightLayer::extract_query_params(req.uri());
             let request_headers = InsightLayer::capture_headers(req.headers(), &config, false);
-            let capture_request_body =
-                config.capture_request_body && InsightLayer::should_capture_body(req.headers(), &config);
+            let capture_request_body = config.capture_request_body
+                && InsightLayer::should_capture_body(req.headers(), &config);
 
             // Get request body info if body capture is enabled
             // Note: take_body() consumes the body, so we can only capture OR process, not both
@@ -288,7 +288,8 @@ impl MiddlewareLayer for InsightLayer {
                 }
             } else {
                 // Estimate size from Content-Length header
-                let size = req.headers()
+                let size = req
+                    .headers()
                     .get(http::header::CONTENT_LENGTH)
                     .and_then(|v| v.to_str().ok())
                     .and_then(|s| s.parse::<usize>().ok())
@@ -304,10 +305,9 @@ impl MiddlewareLayer for InsightLayer {
             let status = response.status().as_u16();
 
             // Capture response info
-            let response_headers =
-                InsightLayer::capture_headers(response.headers(), &config, true);
-            let capture_response_body =
-                config.capture_response_body && InsightLayer::should_capture_body(response.headers(), &config);
+            let response_headers = InsightLayer::capture_headers(response.headers(), &config, true);
+            let capture_response_body = config.capture_response_body
+                && InsightLayer::should_capture_body(response.headers(), &config);
 
             // Buffer response body if needed
             let (resp_parts, resp_body) = response.into_parts();
@@ -387,17 +387,28 @@ mod tests {
     #[test]
     fn test_capture_headers_with_whitelist() {
         let mut headers = http::HeaderMap::new();
-        headers.insert(http::header::CONTENT_TYPE, "application/json".parse().unwrap());
+        headers.insert(
+            http::header::CONTENT_TYPE,
+            "application/json".parse().unwrap(),
+        );
         headers.insert(http::header::USER_AGENT, "test-agent".parse().unwrap());
-        headers.insert(http::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
+        headers.insert(
+            http::header::AUTHORIZATION,
+            "Bearer secret".parse().unwrap(),
+        );
 
-        let config = InsightConfig::new()
-            .header_whitelist(vec!["content-type", "authorization"]);
+        let config = InsightConfig::new().header_whitelist(vec!["content-type", "authorization"]);
 
         let captured = InsightLayer::capture_headers(&headers, &config, false);
 
-        assert_eq!(captured.get("content-type"), Some(&"application/json".to_string()));
-        assert_eq!(captured.get("authorization"), Some(&"[REDACTED]".to_string()));
+        assert_eq!(
+            captured.get("content-type"),
+            Some(&"application/json".to_string())
+        );
+        assert_eq!(
+            captured.get("authorization"),
+            Some(&"[REDACTED]".to_string())
+        );
         assert!(!captured.contains_key("user-agent"));
     }
 

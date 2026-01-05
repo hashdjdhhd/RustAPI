@@ -35,7 +35,7 @@ fn mime_type_for_extension(extension: &str) -> &'static str {
         "txt" => "text/plain; charset=utf-8",
         "md" => "text/markdown; charset=utf-8",
         "csv" => "text/csv",
-        
+
         // Images
         "png" => "image/png",
         "jpg" | "jpeg" => "image/jpeg",
@@ -45,30 +45,30 @@ fn mime_type_for_extension(extension: &str) -> &'static str {
         "ico" => "image/x-icon",
         "bmp" => "image/bmp",
         "avif" => "image/avif",
-        
+
         // Fonts
         "woff" => "font/woff",
         "woff2" => "font/woff2",
         "ttf" => "font/ttf",
         "otf" => "font/otf",
         "eot" => "application/vnd.ms-fontobject",
-        
+
         // Audio/Video
         "mp3" => "audio/mpeg",
         "wav" => "audio/wav",
         "ogg" => "audio/ogg",
         "mp4" => "video/mp4",
         "webm" => "video/webm",
-        
+
         // Documents
         "pdf" => "application/pdf",
         "zip" => "application/zip",
         "tar" => "application/x-tar",
         "gz" => "application/gzip",
-        
+
         // WebAssembly
         "wasm" => "application/wasm",
-        
+
         // Default
         _ => "application/octet-stream",
     }
@@ -86,12 +86,12 @@ fn calculate_etag(modified: SystemTime, size: u64) -> String {
 /// Format system time as HTTP date (RFC 7231)
 fn format_http_date(time: SystemTime) -> String {
     use std::time::Duration;
-    
+
     let duration = time
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or(Duration::ZERO);
     let secs = duration.as_secs();
-    
+
     // Simple HTTP date formatting
     // In production, you'd use a proper date formatting library
     let days = secs / 86400;
@@ -99,17 +99,19 @@ fn format_http_date(time: SystemTime) -> String {
     let hours = remaining / 3600;
     let minutes = (remaining % 3600) / 60;
     let seconds = remaining % 60;
-    
+
     // Calculate day of week and date (simplified)
     let days_since_epoch = days;
     let day_of_week = (days_since_epoch + 4) % 7; // Jan 1, 1970 was Thursday
     let day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    
+    let month_names = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+
     // Calculate year, month, day (simplified leap year handling)
     let mut year = 1970;
     let mut remaining_days = days_since_epoch as i64;
-    
+
     loop {
         let days_in_year = if is_leap_year(year) { 366 } else { 365 };
         if remaining_days < days_in_year {
@@ -118,14 +120,14 @@ fn format_http_date(time: SystemTime) -> String {
         remaining_days -= days_in_year;
         year += 1;
     }
-    
+
     let mut month = 0;
     let days_in_months = if is_leap_year(year) {
         [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     } else {
         [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     };
-    
+
     for (i, &days_in_month) in days_in_months.iter().enumerate() {
         if remaining_days < days_in_month as i64 {
             month = i;
@@ -133,18 +135,12 @@ fn format_http_date(time: SystemTime) -> String {
         }
         remaining_days -= days_in_month as i64;
     }
-    
+
     let day = remaining_days + 1;
-    
+
     format!(
         "{}, {:02} {} {} {:02}:{:02}:{:02} GMT",
-        day_names[day_of_week as usize],
-        day,
-        month_names[month],
-        year,
-        hours,
-        minutes,
-        seconds
+        day_names[day_of_week as usize], day, month_names[month], year, hours, minutes, seconds
     )
 }
 
@@ -253,7 +249,10 @@ impl StaticFile {
     }
 
     /// Serve a file from a path relative to the root
-    pub async fn serve(relative_path: &str, config: &StaticFileConfig) -> Result<Response, ApiError> {
+    pub async fn serve(
+        relative_path: &str,
+        config: &StaticFileConfig,
+    ) -> Result<Response, ApiError> {
         // Sanitize path to prevent directory traversal
         let clean_path = sanitize_path(relative_path);
         let file_path = config.root.join(&clean_path);
@@ -284,24 +283,21 @@ impl StaticFile {
     /// Serve a specific file
     async fn serve_file(path: &Path, config: &StaticFileConfig) -> Result<Response, ApiError> {
         // Check if file exists
-        let metadata = fs::metadata(path).await.map_err(|_| {
-            ApiError::not_found(format!("File not found: {}", path.display()))
-        })?;
+        let metadata = fs::metadata(path)
+            .await
+            .map_err(|_| ApiError::not_found(format!("File not found: {}", path.display())))?;
 
         if !metadata.is_file() {
             return Err(ApiError::not_found("Not a file"));
         }
 
         // Read file
-        let content = fs::read(path).await.map_err(|e| {
-            ApiError::internal(format!("Failed to read file: {}", e))
-        })?;
+        let content = fs::read(path)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to read file: {}", e)))?;
 
         // Determine content type
-        let extension = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
+        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         let content_type = mime_type_for_extension(extension);
 
         // Build response
@@ -344,16 +340,11 @@ impl StaticFile {
 fn sanitize_path(path: &str) -> String {
     // Remove leading slashes
     let path = path.trim_start_matches('/');
-    
+
     // Split and filter out dangerous components
     let parts: Vec<&str> = path
         .split('/')
-        .filter(|part| {
-            !part.is_empty() 
-                && *part != "." 
-                && *part != ".."
-                && !part.contains('\\')
-        })
+        .filter(|part| !part.is_empty() && *part != "." && *part != ".." && !part.contains('\\'))
         .collect();
 
     parts.join("/")
@@ -379,12 +370,10 @@ pub fn static_handler(
     move |req: crate::Request| {
         let config = config.clone();
         let path = req.uri().path().to_string();
-        
+
         Box::pin(async move {
             // Strip prefix from path
-            let relative_path = path
-                .strip_prefix(&config.prefix)
-                .unwrap_or(&path);
+            let relative_path = path.strip_prefix(&config.prefix).unwrap_or(&path);
 
             match StaticFile::serve(relative_path, &config).await {
                 Ok(response) => response,
@@ -423,11 +412,17 @@ mod tests {
     fn test_mime_type_detection() {
         assert_eq!(mime_type_for_extension("html"), "text/html; charset=utf-8");
         assert_eq!(mime_type_for_extension("css"), "text/css; charset=utf-8");
-        assert_eq!(mime_type_for_extension("js"), "text/javascript; charset=utf-8");
+        assert_eq!(
+            mime_type_for_extension("js"),
+            "text/javascript; charset=utf-8"
+        );
         assert_eq!(mime_type_for_extension("png"), "image/png");
         assert_eq!(mime_type_for_extension("jpg"), "image/jpeg");
         assert_eq!(mime_type_for_extension("json"), "application/json");
-        assert_eq!(mime_type_for_extension("unknown"), "application/octet-stream");
+        assert_eq!(
+            mime_type_for_extension("unknown"),
+            "application/octet-stream"
+        );
     }
 
     #[test]

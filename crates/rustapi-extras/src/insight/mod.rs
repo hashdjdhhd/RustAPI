@@ -143,9 +143,9 @@
 
 mod config;
 mod data;
+pub mod export;
 mod layer;
 mod store;
-pub mod export;
 
 pub use config::InsightConfig;
 pub use data::{InsightData, InsightStats};

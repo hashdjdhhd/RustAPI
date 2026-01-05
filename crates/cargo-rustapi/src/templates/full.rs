@@ -12,7 +12,7 @@ pub async fn generate(name: &str, features: &[String]) -> Result<()> {
         "rate-limit".to_string(),
         "config".to_string(),
     ];
-    
+
     // Add user-specified features
     for f in features {
         if !all_features.contains(f) {
@@ -417,10 +417,7 @@ RUST_LOG=info
     fs::write(format!("{name}/.env.example"), env_example).await?;
 
     // Copy .env.example to .env for development
-    fs::copy(
-        format!("{name}/.env.example"),
-        format!("{name}/.env"),
-    ).await?;
+    fs::copy(format!("{name}/.env.example"), format!("{name}/.env")).await?;
 
     // .gitignore
     common::generate_gitignore(name).await?;

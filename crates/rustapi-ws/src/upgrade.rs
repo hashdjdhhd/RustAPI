@@ -9,6 +9,10 @@ use rustapi_openapi::{Operation, ResponseModifier, ResponseSpec};
 use std::future::Future;
 use std::pin::Pin;
 
+/// Type alias for WebSocket upgrade callback
+type UpgradeCallback =
+    Box<dyn FnOnce(WebSocketStream) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send>;
+
 /// WebSocket upgrade response
 ///
 /// This type is returned from WebSocket handlers to initiate the upgrade
@@ -17,9 +21,7 @@ pub struct WebSocketUpgrade {
     /// The upgrade response
     response: Response<Full<Bytes>>,
     /// Callback to handle the WebSocket connection
-    on_upgrade: Option<
-        Box<dyn FnOnce(WebSocketStream) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send>,
-    >,
+    on_upgrade: Option<UpgradeCallback>,
     /// SEC-WebSocket-Key from request
     sec_key: String,
 }
@@ -88,10 +90,7 @@ impl WebSocketUpgrade {
 
     /// Get the on_upgrade callback
     #[allow(dead_code)]
-    pub(crate) fn take_callback(
-        &mut self,
-    ) -> Option<Box<dyn FnOnce(WebSocketStream) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send>>
-    {
+    pub(crate) fn take_callback(&mut self) -> Option<UpgradeCallback> {
         self.on_upgrade.take()
     }
 }

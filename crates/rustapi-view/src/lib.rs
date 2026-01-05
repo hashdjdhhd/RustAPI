@@ -48,27 +48,20 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
+mod context;
 mod error;
 mod templates;
 mod view;
-mod context;
 
+pub use context::ContextBuilder;
 pub use error::ViewError;
 pub use templates::{Templates, TemplatesConfig};
 pub use view::View;
-pub use context::ContextBuilder;
 
 // Re-export tera types that users might need
 pub use tera::Context;
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::{
-        Context,
-        ContextBuilder,
-        Templates,
-        TemplatesConfig,
-        View,
-        ViewError,
-    };
+    pub use crate::{Context, ContextBuilder, Templates, TemplatesConfig, View, ViewError};
 }

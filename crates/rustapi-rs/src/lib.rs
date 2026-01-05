@@ -186,6 +186,8 @@ pub mod prelude {
         post_route,
         put,
         put_route,
+        serve_dir,
+        sse_response,
         // Error handling
         ApiError,
         Body,
@@ -199,6 +201,11 @@ pub mod prelude {
         IntoResponse,
         // Extractors
         Json,
+        KeepAlive,
+        // Multipart
+        Multipart,
+        MultipartConfig,
+        MultipartField,
         NoContent,
         Path,
         Query,
@@ -220,29 +227,22 @@ pub mod prelude {
         // Streaming responses
         Sse,
         SseEvent,
-        KeepAlive,
-        sse_response,
         State,
-        StreamBody,
-        TracingLayer,
-        ValidatedJson,
-        WithStatus,
-        // Multipart
-        Multipart,
-        MultipartField,
-        MultipartConfig,
-        UploadedFile,
         // Static files
         StaticFile,
         StaticFileConfig,
-        serve_dir,
+        StreamBody,
+        TracingLayer,
+        UploadedFile,
+        ValidatedJson,
+        WithStatus,
     };
 
     // Compression middleware (feature-gated in core)
     #[cfg(feature = "compression")]
-    pub use rustapi_core::CompressionLayer;
+    pub use rustapi_core::middleware::{CompressionAlgorithm, CompressionConfig};
     #[cfg(feature = "compression")]
-    pub use rustapi_core::middleware::{CompressionConfig, CompressionAlgorithm};
+    pub use rustapi_core::CompressionLayer;
 
     // Cookies extractor (feature-gated in core)
     #[cfg(feature = "cookies")]
@@ -292,11 +292,11 @@ pub mod prelude {
 
     // WebSocket types (feature-gated)
     #[cfg(feature = "ws")]
-    pub use rustapi_ws::{WebSocket, WebSocketStream, Message, Broadcast};
+    pub use rustapi_ws::{Broadcast, Message, WebSocket, WebSocketStream};
 
     // View/Template types (feature-gated)
     #[cfg(feature = "view")]
-    pub use rustapi_view::{Templates, View, ContextBuilder, TemplatesConfig};
+    pub use rustapi_view::{ContextBuilder, Templates, TemplatesConfig, View};
 }
 
 #[cfg(test)]

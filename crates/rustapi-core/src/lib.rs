@@ -94,9 +94,9 @@ pub use handler::{
     delete_route, get_route, patch_route, post_route, put_route, Handler, HandlerService, Route,
     RouteHandler,
 };
-pub use middleware::{BodyLimitLayer, RequestId, RequestIdLayer, TracingLayer, DEFAULT_BODY_LIMIT};
 #[cfg(feature = "compression")]
 pub use middleware::CompressionLayer;
+pub use middleware::{BodyLimitLayer, RequestId, RequestIdLayer, TracingLayer, DEFAULT_BODY_LIMIT};
 #[cfg(feature = "metrics")]
 pub use middleware::{MetricsLayer, MetricsResponse};
 pub use multipart::{Multipart, MultipartConfig, MultipartField, UploadedFile};

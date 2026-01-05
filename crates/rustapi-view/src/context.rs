@@ -55,7 +55,11 @@ impl ContextBuilder {
     }
 
     /// Insert a value if it's Some
-    pub fn insert_some<T: Serialize>(self, key: impl Into<String>, value: Option<&T>) -> Self {
+    pub fn insert_some<T: Serialize + ?Sized>(
+        self,
+        key: impl Into<String>,
+        value: Option<&T>,
+    ) -> Self {
         if let Some(v) = value {
             self.insert(key, v)
         } else {

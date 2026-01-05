@@ -84,10 +84,7 @@ impl FileExporter {
     /// Creates or appends to the specified file.
     pub fn new(path: impl Into<PathBuf>) -> ExportResult<Self> {
         let path = path.into();
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)?;
+        let file = OpenOptions::new().create(true).append(true).open(&path)?;
         let writer = BufWriter::new(file);
 
         Ok(Self {
@@ -241,7 +238,7 @@ impl WebhookExporter {
         // In production, you'd use an async HTTP client like reqwest.
         // For now, we'll just log and return success since this crate
         // doesn't want to add heavy HTTP client dependencies.
-        
+
         let json = serde_json::to_string(insights)?;
         tracing::debug!(
             url = %self.config.url,
@@ -249,10 +246,10 @@ impl WebhookExporter {
             size = json.len(),
             "Would send insights to webhook"
         );
-        
+
         // TODO: Implement actual HTTP POST when reqwest is available
         // For now, this is a placeholder that logs the intent
-        
+
         Ok(())
     }
 }
@@ -336,13 +333,13 @@ impl CompositeExporter {
     }
 
     /// Add an exporter to the composite.
-    pub fn add<E: InsightExporter>(mut self, exporter: E) -> Self {
+    pub fn with_exporter<E: InsightExporter>(mut self, exporter: E) -> Self {
         self.exporters.push(Box::new(exporter));
         self
     }
 
     /// Add a boxed exporter to the composite.
-    pub fn add_boxed(mut self, exporter: Box<dyn InsightExporter>) -> Self {
+    pub fn with_boxed_exporter(mut self, exporter: Box<dyn InsightExporter>) -> Self {
         self.exporters.push(exporter);
         self
     }
@@ -516,8 +513,8 @@ mod tests {
         let count_clone = count.clone();
 
         let composite = CompositeExporter::new()
-            .add(FileExporter::new(&path).unwrap())
-            .add(CallbackExporter::new(move |_| {
+            .with_exporter(FileExporter::new(&path).unwrap())
+            .with_exporter(CallbackExporter::new(move |_| {
                 count_clone.fetch_add(1, Ordering::SeqCst);
             }));
 

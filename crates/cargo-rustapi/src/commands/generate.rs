@@ -39,11 +39,11 @@ pub async fn generate(args: GenerateArgs) -> Result<()> {
 
 async fn generate_handler(name: &str) -> Result<()> {
     let handlers_dir = Path::new("src/handlers");
-    
+
     // Create handlers directory if it doesn't exist
     if !handlers_dir.exists() {
         fs::create_dir_all(handlers_dir).await?;
-        
+
         // Create mod.rs
         let mod_content = format!("pub mod {};\n", name);
         fs::write(handlers_dir.join("mod.rs"), mod_content).await?;
@@ -131,27 +131,50 @@ pub struct Update{type_name} {{
     let handler_path = handlers_dir.join(format!("{}.rs", name));
     fs::write(&handler_path, handler_content).await?;
 
-    println!("{} Generated handler: {}", style("✓").green(), handler_path.display());
+    println!(
+        "{} Generated handler: {}",
+        style("✓").green(),
+        handler_path.display()
+    );
     println!();
     println!("Don't forget to register the routes in main.rs:");
-    println!("  {}", style(format!(".mount(handlers::{}::list)", name)).cyan());
-    println!("  {}", style(format!(".mount(handlers::{}::get)", name)).cyan());
-    println!("  {}", style(format!(".mount(handlers::{}::create)", name)).cyan());
-    println!("  {}", style(format!(".mount(handlers::{}::update)", name)).cyan());
-    println!("  {}", style(format!(".mount(handlers::{}::delete)", name)).cyan());
+    println!(
+        "  {}",
+        style(format!(".mount(handlers::{}::list)", name)).cyan()
+    );
+    println!(
+        "  {}",
+        style(format!(".mount(handlers::{}::get)", name)).cyan()
+    );
+    println!(
+        "  {}",
+        style(format!(".mount(handlers::{}::create)", name)).cyan()
+    );
+    println!(
+        "  {}",
+        style(format!(".mount(handlers::{}::update)", name)).cyan()
+    );
+    println!(
+        "  {}",
+        style(format!(".mount(handlers::{}::delete)", name)).cyan()
+    );
 
     Ok(())
 }
 
 async fn generate_model(name: &str) -> Result<()> {
     let models_dir = Path::new("src/models");
-    
+
     // Create models directory if it doesn't exist
     if !models_dir.exists() {
         fs::create_dir_all(models_dir).await?;
-        
+
         // Create mod.rs
-        let mod_content = format!("mod {};\npub use {}::*;\n", name.to_lowercase(), name.to_lowercase());
+        let mod_content = format!(
+            "mod {};\npub use {}::*;\n",
+            name.to_lowercase(),
+            name.to_lowercase()
+        );
         fs::write(models_dir.join("mod.rs"), mod_content).await?;
     } else {
         // Append to existing mod.rs
@@ -160,7 +183,10 @@ async fn generate_model(name: &str) -> Result<()> {
             let mut content = fs::read_to_string(&mod_path).await?;
             let lower_name = name.to_lowercase();
             if !content.contains(&format!("mod {};", lower_name)) {
-                content.push_str(&format!("mod {};\npub use {}::*;\n", lower_name, lower_name));
+                content.push_str(&format!(
+                    "mod {};\npub use {}::*;\n",
+                    lower_name, lower_name
+                ));
                 fs::write(&mod_path, content).await?;
             }
         }
@@ -210,7 +236,11 @@ impl {} {{
     let model_path = models_dir.join(format!("{}.rs", name.to_lowercase()));
     fs::write(&model_path, model_content).await?;
 
-    println!("{} Generated model: {}", style("✓").green(), model_path.display());
+    println!(
+        "{} Generated model: {}",
+        style("✓").green(),
+        model_path.display()
+    );
 
     Ok(())
 }
@@ -218,8 +248,11 @@ impl {} {{
 async fn generate_crud(name: &str) -> Result<()> {
     // Generate both handler and model
     let type_name = to_pascal_case(name);
-    
-    println!("{}", style(format!("Generating CRUD for '{}'...", name)).bold());
+
+    println!(
+        "{}",
+        style(format!("Generating CRUD for '{}'...", name)).bold()
+    );
     println!();
 
     generate_model(&type_name).await?;
@@ -238,16 +271,18 @@ fn capitalize(s: &str) -> String {
 }
 
 fn to_pascal_case(s: &str) -> String {
-    s.split(&['-', '_'][..])
-        .map(capitalize)
-        .collect()
+    s.split(&['-', '_'][..]).map(capitalize).collect()
 }
 
 fn singularize(s: &str) -> String {
-    if s.ends_with("ies") {
-        format!("{}y", &s[..s.len() - 3])
-    } else if s.ends_with('s') && !s.ends_with("ss") {
-        s[..s.len() - 1].to_string()
+    if let Some(stripped) = s.strip_suffix("ies") {
+        format!("{}y", stripped)
+    } else if let Some(stripped) = s.strip_suffix('s') {
+        if !s.ends_with("ss") {
+            stripped.to_string()
+        } else {
+            s.to_string()
+        }
     } else {
         s.to_string()
     }

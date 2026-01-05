@@ -171,8 +171,14 @@ impl InsightConfig {
     ///
     /// Only headers in this list will be captured. Use "*" to capture all.
     /// Header names are case-insensitive.
-    pub fn header_whitelist(mut self, headers: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.header_whitelist = headers.into_iter().map(|h| h.into().to_lowercase()).collect();
+    pub fn header_whitelist(
+        mut self,
+        headers: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.header_whitelist = headers
+            .into_iter()
+            .map(|h| h.into().to_lowercase())
+            .collect();
         self
     }
 
@@ -181,7 +187,10 @@ impl InsightConfig {
         mut self,
         headers: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
-        self.response_header_whitelist = headers.into_iter().map(|h| h.into().to_lowercase()).collect();
+        self.response_header_whitelist = headers
+            .into_iter()
+            .map(|h| h.into().to_lowercase())
+            .collect();
         self
     }
 
@@ -247,7 +256,7 @@ impl InsightConfig {
 
     /// Add a sensitive header name.
     ///
-    /// Values for these headers will be replaced with "[REDACTED]".
+    /// Values for these headers will be replaced with `"[REDACTED]"`.
     pub fn sensitive_header(mut self, header: impl Into<String>) -> Self {
         self.sensitive_headers.insert(header.into().to_lowercase());
         self
@@ -260,7 +269,8 @@ impl InsightConfig {
         mut self,
         types: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
-        self.capturable_content_types = types.into_iter().map(|t| t.into().to_lowercase()).collect();
+        self.capturable_content_types =
+            types.into_iter().map(|t| t.into().to_lowercase()).collect();
         self
     }
 
@@ -323,7 +333,8 @@ impl InsightConfig {
         if self.response_header_whitelist.contains("*") {
             return true;
         }
-        self.response_header_whitelist.contains(&name.to_lowercase())
+        self.response_header_whitelist
+            .contains(&name.to_lowercase())
     }
 
     /// Check if a header is sensitive.
@@ -335,7 +346,9 @@ impl InsightConfig {
     pub(crate) fn is_capturable_content_type(&self, content_type: &str) -> bool {
         let ct_lower = content_type.to_lowercase();
         for allowed in &self.capturable_content_types {
-            if ct_lower.starts_with(allowed) || (allowed.ends_with("/*") && ct_lower.starts_with(&allowed[..allowed.len()-1])) {
+            if ct_lower.starts_with(allowed)
+                || (allowed.ends_with("/*") && ct_lower.starts_with(&allowed[..allowed.len() - 1]))
+            {
                 return true;
             }
         }
@@ -347,13 +360,13 @@ impl InsightConfig {
 /// Simple random sampling based on rate.
 fn rand_sample(rate: f64) -> bool {
     use std::time::{SystemTime, UNIX_EPOCH};
-    
+
     // Use system time nanoseconds as a simple random source
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .subsec_nanos();
-    
+
     let threshold = (rate * u32::MAX as f64) as u32;
     nanos < threshold
 }

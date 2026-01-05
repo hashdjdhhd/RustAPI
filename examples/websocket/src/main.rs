@@ -76,8 +76,12 @@ async fn ws_json(ws: WebSocket) -> WebSocketUpgrade {
                         // Try to parse as ChatMessage
                         match msg.as_json::<ChatMessage>() {
                             Ok(chat_msg) => {
-                                tracing::info!("Message from {}: {}", chat_msg.username, chat_msg.content);
-                                
+                                tracing::info!(
+                                    "Message from {}: {}",
+                                    chat_msg.username,
+                                    chat_msg.content
+                                );
+
                                 // Echo back with modified content
                                 let response = ChatMessage {
                                     username: "server".to_string(),
@@ -87,7 +91,7 @@ async fn ws_json(ws: WebSocket) -> WebSocketUpgrade {
                                         .unwrap()
                                         .as_secs(),
                                 };
-                                
+
                                 if let Err(e) = socket.send_json(&response).await {
                                     tracing::error!("Send error: {}", e);
                                     break;
@@ -113,11 +117,14 @@ async fn ws_chat(ws: WebSocket, State(state): State<Arc<AppState>>) -> WebSocket
     ws.on_upgrade(move |socket| async move {
         let (mut sender, mut receiver) = socket.split();
         let broadcast = state.chat_broadcast.clone();
-        
+
         // Subscribe to broadcast messages
         let mut broadcast_rx = broadcast.subscribe();
-        
-        tracing::info!("New chat connection (total: {})", broadcast.subscriber_count());
+
+        tracing::info!(
+            "New chat connection (total: {})",
+            broadcast.subscriber_count()
+        );
 
         // Announce new user
         let _ = broadcast.send_json(&ChatMessage {
@@ -164,15 +171,18 @@ async fn ws_chat(ws: WebSocket, State(state): State<Arc<AppState>>) -> WebSocket
 
         // Clean up
         send_task.abort();
-        
+
         // Announce user left
         let _ = broadcast.send_json(&ChatMessage {
             username: "system".to_string(),
             content: "A user has left".to_string(),
             timestamp: now(),
         });
-        
-        tracing::info!("Chat connection closed (remaining: {})", broadcast.subscriber_count());
+
+        tracing::info!(
+            "Chat connection closed (remaining: {})",
+            broadcast.subscriber_count()
+        );
     })
 }
 
@@ -185,7 +195,8 @@ fn now() -> u64 {
 
 /// Index page with WebSocket test client
 async fn index() -> Html<&'static str> {
-    Html(r#"<!DOCTYPE html>
+    Html(
+        r#"<!DOCTYPE html>
 <html>
 <head>
     <title>WebSocket Example</title>
@@ -291,7 +302,8 @@ async fn index() -> Html<&'static str> {
         }, 100);
     </script>
 </body>
-</html>"#)
+</html>"#,
+    )
 }
 
 #[rustapi_rs::main]

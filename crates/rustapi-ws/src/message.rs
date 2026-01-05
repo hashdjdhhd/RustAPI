@@ -173,16 +173,16 @@ impl From<tungstenite::Message> for Message {
 impl From<Message> for tungstenite::Message {
     fn from(msg: Message) -> Self {
         match msg {
-            Message::Text(text) => tungstenite::Message::Text(text.into()),
-            Message::Binary(data) => tungstenite::Message::Binary(data.into()),
-            Message::Ping(data) => tungstenite::Message::Ping(data.into()),
-            Message::Pong(data) => tungstenite::Message::Pong(data.into()),
-            Message::Close(frame) => tungstenite::Message::Close(frame.map(|f| {
-                tungstenite::protocol::CloseFrame {
+            Message::Text(text) => tungstenite::Message::Text(text),
+            Message::Binary(data) => tungstenite::Message::Binary(data),
+            Message::Ping(data) => tungstenite::Message::Ping(data),
+            Message::Pong(data) => tungstenite::Message::Pong(data),
+            Message::Close(frame) => {
+                tungstenite::Message::Close(frame.map(|f| tungstenite::protocol::CloseFrame {
                     code: f.code.into(),
                     reason: f.reason,
-                }
-            })),
+                }))
+            }
         }
     }
 }

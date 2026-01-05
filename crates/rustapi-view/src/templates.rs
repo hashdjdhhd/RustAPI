@@ -173,32 +173,38 @@ impl Templates {
 /// Register built-in template filters
 fn register_builtin_filters(tera: &mut Tera) {
     // JSON filter for debugging
-    tera.register_filter("json_pretty", |value: &tera::Value, _: &std::collections::HashMap<String, tera::Value>| {
-        serde_json::to_string_pretty(value)
-            .map(tera::Value::String)
-            .map_err(|e| tera::Error::msg(e.to_string()))
-    });
+    tera.register_filter(
+        "json_pretty",
+        |value: &tera::Value, _: &std::collections::HashMap<String, tera::Value>| {
+            serde_json::to_string_pretty(value)
+                .map(tera::Value::String)
+                .map_err(|e| tera::Error::msg(e.to_string()))
+        },
+    );
 
     // Truncate string
-    tera.register_filter("truncate_words", |value: &tera::Value, args: &std::collections::HashMap<String, tera::Value>| {
-        let s = tera::try_get_value!("truncate_words", "value", String, value);
-        let length = match args.get("length") {
-            Some(val) => tera::try_get_value!("truncate_words", "length", usize, val),
-            None => 50,
-        };
-        let end = match args.get("end") {
-            Some(val) => tera::try_get_value!("truncate_words", "end", String, val),
-            None => "...".to_string(),
-        };
+    tera.register_filter(
+        "truncate_words",
+        |value: &tera::Value, args: &std::collections::HashMap<String, tera::Value>| {
+            let s = tera::try_get_value!("truncate_words", "value", String, value);
+            let length = match args.get("length") {
+                Some(val) => tera::try_get_value!("truncate_words", "length", usize, val),
+                None => 50,
+            };
+            let end = match args.get("end") {
+                Some(val) => tera::try_get_value!("truncate_words", "end", String, val),
+                None => "...".to_string(),
+            };
 
-        let words: Vec<&str> = s.split_whitespace().collect();
-        if words.len() <= length {
-            Ok(tera::Value::String(s))
-        } else {
-            let truncated: String = words[..length].join(" ");
-            Ok(tera::Value::String(format!("{}{}", truncated, end)))
-        }
-    });
+            let words: Vec<&str> = s.split_whitespace().collect();
+            if words.len() <= length {
+                Ok(tera::Value::String(s))
+            } else {
+                let truncated: String = words[..length].join(" ");
+                Ok(tera::Value::String(format!("{}{}", truncated, end)))
+            }
+        },
+    );
 }
 
 #[cfg(test)]
@@ -208,11 +214,14 @@ mod tests {
     #[tokio::test]
     async fn test_empty_templates() {
         let templates = Templates::empty();
-        templates.add_template("test", "Hello, {{ name }}!").await.unwrap();
-        
+        templates
+            .add_template("test", "Hello, {{ name }}!")
+            .await
+            .unwrap();
+
         let mut ctx = tera::Context::new();
         ctx.insert("name", "World");
-        
+
         let result = templates.render("test", &ctx).await.unwrap();
         assert_eq!(result, "Hello, World!");
     }
@@ -225,9 +234,14 @@ mod tests {
         }
 
         let templates = Templates::empty();
-        templates.add_template("test", "Hello, {{ name }}!").await.unwrap();
-        
-        let data = Data { name: "Alice".to_string() };
+        templates
+            .add_template("test", "Hello, {{ name }}!")
+            .await
+            .unwrap();
+
+        let data = Data {
+            name: "Alice".to_string(),
+        };
         let result = templates.render_with("test", &data).await.unwrap();
         assert_eq!(result, "Hello, Alice!");
     }

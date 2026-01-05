@@ -28,6 +28,9 @@
 //!                 Ok(Message::Text(text)) => {
 //!                     let _ = sender.send(Message::Text(format!("Echo: {}", text))).await;
 //!                 }
+
+// Allow large error types in Results - WebSocket errors include tungstenite errors which are large
+#![allow(clippy::result_large_err)]
 //!                 Ok(Message::Close(_)) => break,
 //!                 _ => {}
 //!             }
@@ -47,32 +50,24 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
+mod broadcast;
 mod error;
 mod extractor;
 mod message;
 mod socket;
-mod broadcast;
 mod upgrade;
 
+pub use broadcast::Broadcast;
 pub use error::WebSocketError;
 pub use extractor::WebSocket;
 pub use message::{CloseCode, CloseFrame, Message};
 pub use socket::{WebSocketReceiver, WebSocketSender, WebSocketStream};
-pub use broadcast::Broadcast;
 pub use upgrade::WebSocketUpgrade;
 
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
-        Broadcast,
-        CloseCode,
-        CloseFrame,
-        Message,
-        WebSocket,
-        WebSocketError,
-        WebSocketReceiver,
-        WebSocketSender,
-        WebSocketStream,
-        WebSocketUpgrade,
+        Broadcast, CloseCode, CloseFrame, Message, WebSocket, WebSocketError, WebSocketReceiver,
+        WebSocketSender, WebSocketStream, WebSocketUpgrade,
     };
 }

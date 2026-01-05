@@ -45,11 +45,7 @@ impl<T: Serialize> View<T> {
     ///
     /// This is an async operation that renders the template immediately.
     /// For deferred rendering, use `View::deferred`.
-    pub async fn render(
-        templates: &Templates,
-        template: &str,
-        context: T,
-    ) -> Self {
+    pub async fn render(templates: &Templates, template: &str, context: T) -> Self {
         let content = templates.render_with(template, &context).await;
         Self {
             content,
@@ -127,11 +123,11 @@ impl<T> IntoResponse for View<T> {
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-                    .body(Full::new(Bytes::from(format!(
+                    .body(Full::new(Bytes::from(
                         "<!DOCTYPE html><html><head><title>Error</title></head>\
                         <body><h1>500 Internal Server Error</h1>\
-                        <p>Template rendering failed</p></body></html>"
-                    ))))
+                        <p>Template rendering failed</p></body></html>",
+                    )))
                     .unwrap()
             }
         }

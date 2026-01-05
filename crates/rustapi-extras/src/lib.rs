@@ -70,4 +70,6 @@ pub use config::{
 pub use sqlx::{convert_sqlx_error, SqlxErrorExt};
 
 #[cfg(feature = "insight")]
-pub use insight::{InsightConfig, InsightData, InsightLayer, InsightStats, InsightStore, InMemoryInsightStore};
+pub use insight::{
+    InMemoryInsightStore, InsightConfig, InsightData, InsightLayer, InsightStats, InsightStore,
+};

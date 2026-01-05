@@ -71,7 +71,10 @@ impl Broadcast {
     }
 
     /// Send a JSON message to all subscribers
-    pub fn send_json<T: serde::Serialize>(&self, value: &T) -> Result<usize, crate::WebSocketError> {
+    pub fn send_json<T: serde::Serialize>(
+        &self,
+        value: &T,
+    ) -> Result<usize, crate::WebSocketError> {
         let msg = Message::json(value)?;
         Ok(self.send(msg))
     }

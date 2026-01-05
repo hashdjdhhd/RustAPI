@@ -5,10 +5,10 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, Stream, StreamExt,
 };
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use hyper::upgrade::Upgraded;
 use hyper_util::rt::TokioIo;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio_tungstenite::WebSocketStream as TungsteniteStream;
 
 /// Type alias for the upgraded connection
@@ -48,7 +48,10 @@ impl WebSocketStream {
     /// ```
     pub fn split(self) -> (WebSocketSender, WebSocketReceiver) {
         let (sink, stream) = self.inner.split();
-        (WebSocketSender { inner: sink }, WebSocketReceiver { inner: stream })
+        (
+            WebSocketSender { inner: sink },
+            WebSocketReceiver { inner: stream },
+        )
     }
 
     /// Send a message
@@ -70,7 +73,10 @@ impl WebSocketStream {
     }
 
     /// Send a JSON message
-    pub async fn send_json<T: serde::Serialize>(&mut self, value: &T) -> Result<(), WebSocketError> {
+    pub async fn send_json<T: serde::Serialize>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), WebSocketError> {
         let msg = Message::json(value)?;
         self.send(msg).await
     }
@@ -85,10 +91,7 @@ impl WebSocketStream {
 
     /// Close the connection
     pub async fn close(mut self) -> Result<(), WebSocketError> {
-        self.inner
-            .close(None)
-            .await
-            .map_err(WebSocketError::from)
+        self.inner.close(None).await.map_err(WebSocketError::from)
     }
 
     /// Close the connection with a close frame
@@ -135,7 +138,10 @@ impl WebSocketSender {
     }
 
     /// Send a JSON message
-    pub async fn send_json<T: serde::Serialize>(&mut self, value: &T) -> Result<(), WebSocketError> {
+    pub async fn send_json<T: serde::Serialize>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), WebSocketError> {
         let msg = Message::json(value)?;
         self.send(msg).await
     }

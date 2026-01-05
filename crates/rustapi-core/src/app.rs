@@ -468,9 +468,7 @@ impl RustApi {
                 let path = req.uri().path().to_string();
 
                 Box::pin(async move {
-                    let relative_path = path
-                        .strip_prefix(&config.prefix)
-                        .unwrap_or(&path);
+                    let relative_path = path.strip_prefix(&config.prefix).unwrap_or(&path);
 
                     match crate::static_files::StaticFile::serve(relative_path, &config).await {
                         Ok(response) => response,

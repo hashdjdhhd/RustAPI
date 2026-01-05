@@ -63,7 +63,12 @@ pub async fn new_project(mut args: NewArgs) -> Result<()> {
     } else if args.yes {
         ProjectTemplate::Minimal
     } else {
-        let templates = ["minimal - Bare minimum app", "api - REST API with CRUD", "web - Web app with templates", "full - Full-featured app"];
+        let templates = [
+            "minimal - Bare minimum app",
+            "api - REST API with CRUD",
+            "web - Web app with templates",
+            "full - Full-featured app",
+        ];
         let selection = Select::with_theme(&theme)
             .with_prompt("Select a template")
             .items(&templates)
@@ -98,7 +103,10 @@ pub async fn new_project(mut args: NewArgs) -> Result<()> {
             .defaults(&defaults)
             .interact()?;
 
-        selections.iter().map(|&i| available[i].to_string()).collect()
+        selections
+            .iter()
+            .map(|&i| available[i].to_string())
+            .collect()
     };
 
     // Confirm
@@ -107,7 +115,15 @@ pub async fn new_project(mut args: NewArgs) -> Result<()> {
         println!("{}", style("Project configuration:").bold());
         println!("  Name:     {}", style(&name).cyan());
         println!("  Template: {}", style(format!("{:?}", template)).cyan());
-        println!("  Features: {}", style(if features.is_empty() { "none".to_string() } else { features.join(", ") }).cyan());
+        println!(
+            "  Features: {}",
+            style(if features.is_empty() {
+                "none".to_string()
+            } else {
+                features.join(", ")
+            })
+            .cyan()
+        );
         println!();
 
         if !Confirm::with_theme(&theme)
@@ -144,16 +160,25 @@ pub async fn new_project(mut args: NewArgs) -> Result<()> {
 
     // Success message
     println!();
-    println!("{}", style("✨ Project created successfully!").green().bold());
+    println!(
+        "{}",
+        style("✨ Project created successfully!").green().bold()
+    );
     println!();
     println!("Next steps:");
     println!("  {} {}", style("cd").cyan(), name);
-    println!("  {} {}", style("cargo").cyan(), "run");
+    println!("  {} run", style("cargo").cyan());
     println!();
-    println!("Then open {} in your browser.", style("http://localhost:8080").cyan());
-    
+    println!(
+        "Then open {} in your browser.",
+        style("http://localhost:8080").cyan()
+    );
+
     if features.iter().any(|f| f == "swagger-ui") || template == ProjectTemplate::Full {
-        println!("API docs available at {}", style("http://localhost:8080/docs").cyan());
+        println!(
+            "API docs available at {}",
+            style("http://localhost:8080/docs").cyan()
+        );
     }
 
     Ok(())
@@ -170,8 +195,13 @@ fn validate_project_name(name: &str) -> Result<()> {
     }
 
     // Check for valid Rust crate name characters
-    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        anyhow::bail!("Project name can only contain alphanumeric characters, hyphens, and underscores");
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        anyhow::bail!(
+            "Project name can only contain alphanumeric characters, hyphens, and underscores"
+        );
     }
 
     if name.starts_with('-') || name.starts_with('_') {

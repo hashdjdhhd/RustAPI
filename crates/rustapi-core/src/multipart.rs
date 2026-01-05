@@ -162,26 +162,28 @@ impl MultipartField {
     /// ```
     pub async fn save_to(&self, dir: impl AsRef<Path>, filename: Option<&str>) -> Result<String> {
         let dir = dir.as_ref();
-        
+
         // Ensure directory exists
-        tokio::fs::create_dir_all(dir).await.map_err(|e| {
-            ApiError::internal(format!("Failed to create upload directory: {}", e))
-        })?;
+        tokio::fs::create_dir_all(dir)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to create upload directory: {}", e)))?;
 
         // Determine filename
         let final_filename = filename
             .map(|s| s.to_string())
             .or_else(|| self.file_name.clone())
-            .ok_or_else(|| ApiError::bad_request("No filename provided and field has no filename"))?;
+            .ok_or_else(|| {
+                ApiError::bad_request("No filename provided and field has no filename")
+            })?;
 
         // Sanitize filename to prevent path traversal
         let safe_filename = sanitize_filename(&final_filename);
         let file_path = dir.join(&safe_filename);
 
         // Write file
-        tokio::fs::write(&file_path, &self.data).await.map_err(|e| {
-            ApiError::internal(format!("Failed to save file: {}", e))
-        })?;
+        tokio::fs::write(&file_path, &self.data)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to save file: {}", e)))?;
 
         Ok(file_path.to_string_lossy().to_string())
     }
@@ -231,17 +233,15 @@ impl FromRequest for Multipart {
 
 /// Extract boundary from Content-Type header
 fn extract_boundary(content_type: &str) -> Option<String> {
-    content_type
-        .split(';')
-        .find_map(|part| {
-            let part = part.trim();
-            if part.starts_with("boundary=") {
-                let boundary = part.trim_start_matches("boundary=").trim_matches('"');
-                Some(boundary.to_string())
-            } else {
-                None
-            }
-        })
+    content_type.split(';').find_map(|part| {
+        let part = part.trim();
+        if part.starts_with("boundary=") {
+            let boundary = part.trim_start_matches("boundary=").trim_matches('"');
+            Some(boundary.to_string())
+        } else {
+            None
+        }
+    })
 }
 
 /// Parse multipart form data
@@ -253,7 +253,7 @@ fn parse_multipart(body: &Bytes, boundary: &str) -> Result<Vec<MultipartField>> 
     // Convert body to string for easier parsing
     // Note: This is a simplified parser. For production, consider using multer crate.
     let body_str = String::from_utf8_lossy(body);
-    
+
     // Split by delimiter
     let parts: Vec<&str> = body_str.split(&delimiter).collect();
 
@@ -274,7 +274,9 @@ fn parse_multipart(body: &Bytes, boundary: &str) -> Result<Vec<MultipartField>> 
         };
 
         let headers_section = &part[..header_body_split];
-        let body_section = &part[header_body_split..].trim_start_matches("\r\n\r\n").trim_start_matches("\n\n");
+        let body_section = &part[header_body_split..]
+            .trim_start_matches("\r\n\r\n")
+            .trim_start_matches("\n\n");
 
         // Remove trailing boundary markers from body
         let body_section = body_section
@@ -432,17 +434,17 @@ impl UploadedFile {
     /// Save to disk with original filename
     pub async fn save_to(&self, dir: impl AsRef<Path>) -> Result<String> {
         let dir = dir.as_ref();
-        
-        tokio::fs::create_dir_all(dir).await.map_err(|e| {
-            ApiError::internal(format!("Failed to create upload directory: {}", e))
-        })?;
+
+        tokio::fs::create_dir_all(dir)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to create upload directory: {}", e)))?;
 
         let safe_filename = sanitize_filename(&self.filename);
         let file_path = dir.join(&safe_filename);
 
-        tokio::fs::write(&file_path, &self.data).await.map_err(|e| {
-            ApiError::internal(format!("Failed to save file: {}", e))
-        })?;
+        tokio::fs::write(&file_path, &self.data)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to save file: {}", e)))?;
 
         Ok(file_path.to_string_lossy().to_string())
     }
@@ -450,16 +452,16 @@ impl UploadedFile {
     /// Save with a custom filename
     pub async fn save_as(&self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
-        
+
         if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                ApiError::internal(format!("Failed to create directory: {}", e))
-            })?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| ApiError::internal(format!("Failed to create directory: {}", e)))?;
         }
 
-        tokio::fs::write(path, &self.data).await.map_err(|e| {
-            ApiError::internal(format!("Failed to save file: {}", e))
-        })?;
+        tokio::fs::write(path, &self.data)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to save file: {}", e)))?;
 
         Ok(())
     }
@@ -489,7 +491,10 @@ mod tests {
         assert_eq!(sanitize_filename("test.txt"), "test.txt");
         assert_eq!(sanitize_filename("../../../etc/passwd"), "______etc_passwd");
         // ..\..\windows\system32 -> .._.._windows_system32 -> ____windows_system32
-        assert_eq!(sanitize_filename("..\\..\\windows\\system32"), "____windows_system32");
+        assert_eq!(
+            sanitize_filename("..\\..\\windows\\system32"),
+            "____windows_system32"
+        );
         assert_eq!(sanitize_filename(".hidden"), "hidden");
     }
 

@@ -19,7 +19,7 @@ use crate::middleware::{BoxedNext, MiddlewareLayer};
 use crate::request::Request;
 use crate::response::Response;
 use bytes::Bytes;
-use flate2::write::{GzEncoder, DeflateEncoder};
+use flate2::write::{DeflateEncoder, GzEncoder};
 use flate2::Compression;
 use http::header;
 use http_body_util::{BodyExt, Full};
@@ -57,14 +57,14 @@ impl CompressionAlgorithm {
     pub fn from_accept_encoding(header: &str) -> Self {
         let encodings: Vec<(f32, &str)> = header
             .split(',')
-            .filter_map(|part| {
+            .map(|part| {
                 let part = part.trim();
                 let (encoding, quality) = if let Some((enc, q)) = part.split_once(";q=") {
                     (enc.trim(), q.trim().parse().unwrap_or(1.0))
                 } else {
                     (part, 1.0)
                 };
-                Some((quality, encoding))
+                (quality, encoding)
             })
             .collect();
 
@@ -237,7 +237,6 @@ impl CompressionLayer {
             }
             #[cfg(feature = "compression-brotli")]
             CompressionAlgorithm::Brotli => {
-                use brotli::CompressorWriter;
                 use brotli::enc::BrotliEncoderParams;
                 let mut output = Vec::new();
                 let params = BrotliEncoderParams::default();
@@ -383,7 +382,9 @@ mod tests {
         assert_eq!(config.level, 9);
         assert!(config.gzip);
         assert!(!config.deflate);
-        assert!(config.content_types.contains(&"application/custom".to_string()));
+        assert!(config
+            .content_types
+            .contains(&"application/custom".to_string()));
     }
 
     #[test]
@@ -402,7 +403,7 @@ mod tests {
         let data = b"Hello, World! This is test data that should be compressed.";
 
         let compressed = layer.compress(data, CompressionAlgorithm::Gzip).unwrap();
-        
+
         // Compressed data should be valid gzip (starts with magic bytes)
         assert!(compressed.len() >= 2);
         assert_eq!(compressed[0], 0x1f);
@@ -415,7 +416,7 @@ mod tests {
         let data = b"Hello, World! This is test data that should be compressed.";
 
         let compressed = layer.compress(data, CompressionAlgorithm::Deflate).unwrap();
-        
+
         // Deflate produces output
         assert!(!compressed.is_empty());
     }
@@ -425,7 +426,9 @@ mod tests {
         let layer = CompressionLayer::new();
         let data = b"Hello, World!";
 
-        let result = layer.compress(data, CompressionAlgorithm::Identity).unwrap();
+        let result = layer
+            .compress(data, CompressionAlgorithm::Identity)
+            .unwrap();
         assert_eq!(result, data);
     }
 }

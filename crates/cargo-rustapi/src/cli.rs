@@ -1,7 +1,7 @@
 //! CLI argument parsing
 
+use crate::commands::{self, GenerateArgs, NewArgs, RunArgs};
 use clap::{Parser, Subcommand};
-use crate::commands::{self, NewArgs, RunArgs, GenerateArgs};
 
 /// RustAPI CLI - Project scaffolding and development utilities
 #[derive(Parser, Debug)]

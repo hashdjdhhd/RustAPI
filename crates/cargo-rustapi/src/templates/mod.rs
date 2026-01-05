@@ -1,9 +1,9 @@
 //! Project templates
 
-mod minimal;
 mod api;
-mod web;
 mod full;
+mod minimal;
+mod web;
 
 use anyhow::Result;
 use clap::ValueEnum;
@@ -91,8 +91,14 @@ RUST_LOG=info
         if features.is_empty() {
             String::new()
         } else {
-            format!(", features = [{}]", 
-                features.iter().map(|f| format!("\"{}\"", f)).collect::<Vec<_>>().join(", "))
+            format!(
+                ", features = [{}]",
+                features
+                    .iter()
+                    .map(|f| format!("\"{}\"", f))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
         }
     }
 }
