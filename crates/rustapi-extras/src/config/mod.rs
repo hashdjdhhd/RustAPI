@@ -385,8 +385,10 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
     use serde::Deserialize;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_environment_detection_development() {
         // Clear any existing value
         std::env::remove_var("RUSTAPI_ENV");
@@ -398,6 +400,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_environment_detection_production() {
         std::env::set_var("RUSTAPI_ENV", "production");
         let env = Environment::current();
@@ -415,6 +418,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_environment_detection_custom() {
         std::env::set_var("RUSTAPI_ENV", "staging");
         let env = Environment::current();
@@ -458,6 +462,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_env_or_with_default() {
         // Use a unique var name to avoid conflicts
         let var_name = "RUSTAPI_TEST_ENV_OR_12345";
@@ -475,6 +480,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_env_parse() {
         let var_name = "RUSTAPI_TEST_PARSE_12345";
 
@@ -501,6 +507,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_config_from_env() {
         // Set up test environment variables with unique names
         std::env::set_var("UNIT_TEST_STRING", "hello");
@@ -522,6 +529,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_config_from_env_missing_var() {
         // Ensure the variables don't exist (use unique names to avoid race conditions)
         std::env::remove_var("MISSING_VAR_TEST_STRING");
@@ -538,6 +546,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_config_from_env_prefixed() {
         std::env::set_var("MYAPP_URL", "http://localhost");
         std::env::set_var("MYAPP_PORT", "3000");
@@ -558,6 +567,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_config_deref() {
         std::env::set_var("DEREF_TEST_STRING", "deref_test");
         std::env::set_var("DEREF_TEST_NUMBER", "100");
@@ -580,6 +590,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_config_into_inner() {
         std::env::set_var("INNER_TEST_STRING", "inner_test");
         std::env::set_var("INNER_TEST_NUMBER", "200");
@@ -605,6 +616,7 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(100))]
 
         #[test]
+        #[serial]
         fn prop_config_deserialization(
             string_value in "[a-zA-Z0-9_]{1,50}",
             number_value in 0u32..10000u32,
@@ -665,6 +677,7 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(100))]
 
         #[test]
+        #[serial]
         fn prop_config_optional_fields(
             required_value in "[a-zA-Z0-9]{1,30}",
             optional_present in prop::bool::ANY,
