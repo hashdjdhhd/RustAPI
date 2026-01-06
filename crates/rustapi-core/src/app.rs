@@ -392,6 +392,10 @@ impl RustApi {
 
     /// Nest a router under a prefix
     ///
+    /// All routes from the nested router will be registered with the prefix
+    /// prepended to their paths. OpenAPI operations from the nested router
+    /// are also propagated to the parent's OpenAPI spec with prefixed paths.
+    ///
     /// # Example
     ///
     /// ```rust,ignore
@@ -402,6 +406,35 @@ impl RustApi {
     ///     .nest("/api/v1", api_v1)
     /// ```
     pub fn nest(mut self, prefix: &str, router: Router) -> Self {
+        // Normalize the prefix for OpenAPI paths
+        let normalized_prefix = normalize_prefix_for_openapi(prefix);
+
+        // Propagate OpenAPI operations from nested router with prefixed paths
+        // We need to do this before calling router.nest() because it consumes the router
+        for (matchit_path, method_router) in router.method_routers() {
+            // Get the display path from registered_routes (has {param} format)
+            let display_path = router
+                .registered_routes()
+                .get(matchit_path)
+                .map(|info| info.path.clone())
+                .unwrap_or_else(|| matchit_path.clone());
+
+            // Build the prefixed display path for OpenAPI
+            let prefixed_path = if display_path == "/" {
+                normalized_prefix.clone()
+            } else {
+                format!("{}{}", normalized_prefix, display_path)
+            };
+
+            // Register each operation in the OpenAPI spec
+            for (method, op) in &method_router.operations {
+                let mut op = op.clone();
+                add_path_params_to_operation(&prefixed_path, &mut op);
+                self.openapi_spec = self.openapi_spec.path(&prefixed_path, method.as_str(), op);
+            }
+        }
+
+        // Delegate to Router::nest for actual route registration
         self.router = self.router.nest(prefix, router);
         self
     }
@@ -814,6 +847,36 @@ fn add_path_params_to_operation(path: &str, op: &mut rustapi_openapi::Operation)
     }
 }
 
+/// Normalize a prefix for OpenAPI paths.
+///
+/// Ensures the prefix:
+/// - Starts with exactly one leading slash
+/// - Has no trailing slash (unless it's just "/")
+/// - Has no double slashes
+fn normalize_prefix_for_openapi(prefix: &str) -> String {
+    // Handle empty string
+    if prefix.is_empty() {
+        return "/".to_string();
+    }
+
+    // Split by slashes and filter out empty segments (handles multiple slashes)
+    let segments: Vec<&str> = prefix.split('/').filter(|s| !s.is_empty()).collect();
+
+    // If no segments after filtering, return root
+    if segments.is_empty() {
+        return "/".to_string();
+    }
+
+    // Build the normalized prefix with leading slash
+    let mut result = String::with_capacity(prefix.len() + 1);
+    for segment in segments {
+        result.push('/');
+        result.push_str(segment);
+    }
+
+    result
+}
+
 impl Default for RustApi {
     fn default() -> Self {
         Self::new()
@@ -825,8 +888,10 @@ mod tests {
     use super::RustApi;
     use crate::extract::{FromRequestParts, State};
     use crate::request::Request;
+    use crate::router::{get, post, Router};
     use bytes::Bytes;
     use http::Method;
+    use proptest::prelude::*;
     use std::collections::HashMap;
 
     #[test]
@@ -844,6 +909,530 @@ mod tests {
         let request = Request::new(parts, Bytes::new(), router.state_ref(), HashMap::new());
         let State(value) = State::<u32>::from_request_parts(&request).unwrap();
         assert_eq!(value, 123u32);
+    }
+
+    // **Feature: router-nesting, Property 11: OpenAPI Integration**
+    //
+    // For any nested routes with OpenAPI operations, the operations should appear
+    // in the parent's OpenAPI spec with prefixed paths and preserved metadata.
+    //
+    // **Validates: Requirements 4.1, 4.2**
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        /// Property: Nested routes appear in OpenAPI spec with prefixed paths
+        ///
+        /// For any router with routes nested under a prefix, all routes should
+        /// appear in the OpenAPI spec with the prefix prepended to their paths.
+        #[test]
+        fn prop_nested_routes_in_openapi_spec(
+            // Generate prefix segments
+            prefix_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            // Generate route path segments
+            route_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            has_param in any::<bool>(),
+        ) {
+            async fn handler() -> &'static str { "handler" }
+
+            // Build the prefix
+            let prefix = format!("/{}", prefix_segments.join("/"));
+
+            // Build the route path
+            let mut route_path = format!("/{}", route_segments.join("/"));
+            if has_param {
+                route_path.push_str("/{id}");
+            }
+
+            // Create nested router and nest it through RustApi
+            let nested_router = Router::new().route(&route_path, get(handler));
+            let app = RustApi::new().nest(&prefix, nested_router);
+
+            // Build expected prefixed path for OpenAPI (uses {param} format)
+            let expected_openapi_path = format!("{}{}", prefix, route_path);
+
+            // Get the OpenAPI spec
+            let spec = app.openapi_spec();
+
+            // Property: The prefixed route should exist in OpenAPI paths
+            prop_assert!(
+                spec.paths.contains_key(&expected_openapi_path),
+                "Expected OpenAPI path '{}' not found. Available paths: {:?}",
+                expected_openapi_path,
+                spec.paths.keys().collect::<Vec<_>>()
+            );
+
+            // Property: The path item should have a GET operation
+            let path_item = spec.paths.get(&expected_openapi_path).unwrap();
+            prop_assert!(
+                path_item.get.is_some(),
+                "GET operation should exist for path '{}'",
+                expected_openapi_path
+            );
+        }
+
+        /// Property: Multiple HTTP methods are preserved in OpenAPI spec after nesting
+        ///
+        /// For any router with routes having multiple HTTP methods, nesting should
+        /// preserve all method operations in the OpenAPI spec.
+        #[test]
+        fn prop_multiple_methods_preserved_in_openapi(
+            prefix_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            route_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+        ) {
+            async fn get_handler() -> &'static str { "get" }
+            async fn post_handler() -> &'static str { "post" }
+
+            // Build the prefix and route path
+            let prefix = format!("/{}", prefix_segments.join("/"));
+            let route_path = format!("/{}", route_segments.join("/"));
+
+            // Create nested router with both GET and POST using separate routes
+            // Since MethodRouter doesn't have chaining methods, we create two routes
+            let get_route_path = format!("{}/get", route_path);
+            let post_route_path = format!("{}/post", route_path);
+            let nested_router = Router::new()
+                .route(&get_route_path, get(get_handler))
+                .route(&post_route_path, post(post_handler));
+            let app = RustApi::new().nest(&prefix, nested_router);
+
+            // Build expected prefixed paths for OpenAPI
+            let expected_get_path = format!("{}{}", prefix, get_route_path);
+            let expected_post_path = format!("{}{}", prefix, post_route_path);
+
+            // Get the OpenAPI spec
+            let spec = app.openapi_spec();
+
+            // Property: Both paths should exist
+            prop_assert!(
+                spec.paths.contains_key(&expected_get_path),
+                "Expected OpenAPI path '{}' not found",
+                expected_get_path
+            );
+            prop_assert!(
+                spec.paths.contains_key(&expected_post_path),
+                "Expected OpenAPI path '{}' not found",
+                expected_post_path
+            );
+
+            // Property: GET operation should exist on get path
+            let get_path_item = spec.paths.get(&expected_get_path).unwrap();
+            prop_assert!(
+                get_path_item.get.is_some(),
+                "GET operation should exist for path '{}'",
+                expected_get_path
+            );
+
+            // Property: POST operation should exist on post path
+            let post_path_item = spec.paths.get(&expected_post_path).unwrap();
+            prop_assert!(
+                post_path_item.post.is_some(),
+                "POST operation should exist for path '{}'",
+                expected_post_path
+            );
+        }
+
+        /// Property: Path parameters are added to OpenAPI operations after nesting
+        ///
+        /// For any nested route with path parameters, the OpenAPI operation should
+        /// include the path parameters.
+        #[test]
+        fn prop_path_params_in_openapi_after_nesting(
+            prefix_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            param_name in "[a-z][a-z0-9]{0,5}",
+        ) {
+            async fn handler() -> &'static str { "handler" }
+
+            // Build the prefix and route path with parameter
+            let prefix = format!("/{}", prefix_segments.join("/"));
+            let route_path = format!("/{{{}}}", param_name);
+
+            // Create nested router
+            let nested_router = Router::new().route(&route_path, get(handler));
+            let app = RustApi::new().nest(&prefix, nested_router);
+
+            // Build expected prefixed path for OpenAPI
+            let expected_openapi_path = format!("{}{}", prefix, route_path);
+
+            // Get the OpenAPI spec
+            let spec = app.openapi_spec();
+
+            // Property: The path should exist
+            prop_assert!(
+                spec.paths.contains_key(&expected_openapi_path),
+                "Expected OpenAPI path '{}' not found",
+                expected_openapi_path
+            );
+
+            // Property: The GET operation should have the path parameter
+            let path_item = spec.paths.get(&expected_openapi_path).unwrap();
+            let get_op = path_item.get.as_ref().unwrap();
+
+            prop_assert!(
+                get_op.parameters.is_some(),
+                "Operation should have parameters for path '{}'",
+                expected_openapi_path
+            );
+
+            let params = get_op.parameters.as_ref().unwrap();
+            let has_param = params.iter().any(|p| p.name == param_name && p.location == "path");
+            prop_assert!(
+                has_param,
+                "Path parameter '{}' should exist in operation parameters. Found: {:?}",
+                param_name,
+                params.iter().map(|p| &p.name).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    // **Feature: router-nesting, Property 13: RustApi Integration**
+    //
+    // For any router nested through `RustApi::new().nest()`, the behavior should be
+    // identical to nesting through `Router::new().nest()`, and routes should appear
+    // in the OpenAPI spec.
+    //
+    // **Validates: Requirements 6.1, 6.2**
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        /// Property: RustApi::nest delegates to Router::nest and produces identical route registration
+        ///
+        /// For any router with routes nested under a prefix, nesting through RustApi
+        /// should produce the same route registration as nesting through Router directly.
+        #[test]
+        fn prop_rustapi_nest_delegates_to_router_nest(
+            prefix_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            route_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            has_param in any::<bool>(),
+        ) {
+            async fn handler() -> &'static str { "handler" }
+
+            // Build the prefix
+            let prefix = format!("/{}", prefix_segments.join("/"));
+
+            // Build the route path
+            let mut route_path = format!("/{}", route_segments.join("/"));
+            if has_param {
+                route_path.push_str("/{id}");
+            }
+
+            // Create nested router
+            let nested_router_for_rustapi = Router::new().route(&route_path, get(handler));
+            let nested_router_for_router = Router::new().route(&route_path, get(handler));
+
+            // Nest through RustApi
+            let rustapi_app = RustApi::new().nest(&prefix, nested_router_for_rustapi);
+            let rustapi_router = rustapi_app.into_router();
+
+            // Nest through Router directly
+            let router_app = Router::new().nest(&prefix, nested_router_for_router);
+
+            // Property: Both should have the same registered routes
+            let rustapi_routes = rustapi_router.registered_routes();
+            let router_routes = router_app.registered_routes();
+
+            prop_assert_eq!(
+                rustapi_routes.len(),
+                router_routes.len(),
+                "RustApi and Router should have same number of routes"
+            );
+
+            // Property: All routes from Router should exist in RustApi
+            for (path, info) in router_routes {
+                prop_assert!(
+                    rustapi_routes.contains_key(path),
+                    "Route '{}' from Router should exist in RustApi routes",
+                    path
+                );
+
+                let rustapi_info = rustapi_routes.get(path).unwrap();
+                prop_assert_eq!(
+                    &info.path, &rustapi_info.path,
+                    "Display paths should match for route '{}'",
+                    path
+                );
+                prop_assert_eq!(
+                    info.methods.len(), rustapi_info.methods.len(),
+                    "Method count should match for route '{}'",
+                    path
+                );
+            }
+        }
+
+        /// Property: RustApi::nest includes nested routes in OpenAPI spec
+        ///
+        /// For any router with routes nested through RustApi, all routes should
+        /// appear in the OpenAPI specification with prefixed paths.
+        #[test]
+        fn prop_rustapi_nest_includes_routes_in_openapi(
+            prefix_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            route_segments in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..3),
+            has_param in any::<bool>(),
+        ) {
+            async fn handler() -> &'static str { "handler" }
+
+            // Build the prefix
+            let prefix = format!("/{}", prefix_segments.join("/"));
+
+            // Build the route path
+            let mut route_path = format!("/{}", route_segments.join("/"));
+            if has_param {
+                route_path.push_str("/{id}");
+            }
+
+            // Create nested router and nest through RustApi
+            let nested_router = Router::new().route(&route_path, get(handler));
+            let app = RustApi::new().nest(&prefix, nested_router);
+
+            // Build expected prefixed path for OpenAPI
+            let expected_openapi_path = format!("{}{}", prefix, route_path);
+
+            // Get the OpenAPI spec
+            let spec = app.openapi_spec();
+
+            // Property: The prefixed route should exist in OpenAPI paths
+            prop_assert!(
+                spec.paths.contains_key(&expected_openapi_path),
+                "Expected OpenAPI path '{}' not found. Available paths: {:?}",
+                expected_openapi_path,
+                spec.paths.keys().collect::<Vec<_>>()
+            );
+
+            // Property: The path item should have a GET operation
+            let path_item = spec.paths.get(&expected_openapi_path).unwrap();
+            prop_assert!(
+                path_item.get.is_some(),
+                "GET operation should exist for path '{}'",
+                expected_openapi_path
+            );
+        }
+
+        /// Property: RustApi::nest route matching is identical to Router::nest
+        ///
+        /// For any nested route, matching through RustApi should produce the same
+        /// result as matching through Router directly.
+        #[test]
+        fn prop_rustapi_nest_route_matching_identical(
+            prefix_segments in prop::collection::vec("[a-z][a-z0-9]{1,5}", 1..2),
+            route_segments in prop::collection::vec("[a-z][a-z0-9]{1,5}", 1..2),
+            param_value in "[a-z0-9]{1,10}",
+        ) {
+            use crate::router::RouteMatch;
+
+            async fn handler() -> &'static str { "handler" }
+
+            // Build the prefix and route path with parameter
+            let prefix = format!("/{}", prefix_segments.join("/"));
+            let route_path = format!("/{}/{{id}}", route_segments.join("/"));
+
+            // Create nested routers
+            let nested_router_for_rustapi = Router::new().route(&route_path, get(handler));
+            let nested_router_for_router = Router::new().route(&route_path, get(handler));
+
+            // Nest through both RustApi and Router
+            let rustapi_app = RustApi::new().nest(&prefix, nested_router_for_rustapi);
+            let rustapi_router = rustapi_app.into_router();
+            let router_app = Router::new().nest(&prefix, nested_router_for_router);
+
+            // Build the full path to match
+            let full_path = format!("{}/{}/{}", prefix, route_segments.join("/"), param_value);
+
+            // Match through both
+            let rustapi_match = rustapi_router.match_route(&full_path, &Method::GET);
+            let router_match = router_app.match_route(&full_path, &Method::GET);
+
+            // Property: Both should return Found with same parameters
+            match (rustapi_match, router_match) {
+                (RouteMatch::Found { params: rustapi_params, .. }, RouteMatch::Found { params: router_params, .. }) => {
+                    prop_assert_eq!(
+                        rustapi_params.len(),
+                        router_params.len(),
+                        "Parameter count should match"
+                    );
+                    for (key, value) in &router_params {
+                        prop_assert!(
+                            rustapi_params.contains_key(key),
+                            "RustApi should have parameter '{}'",
+                            key
+                        );
+                        prop_assert_eq!(
+                            rustapi_params.get(key).unwrap(),
+                            value,
+                            "Parameter '{}' value should match",
+                            key
+                        );
+                    }
+                }
+                (rustapi_result, router_result) => {
+                    prop_assert!(
+                        false,
+                        "Both should return Found, but RustApi returned {:?} and Router returned {:?}",
+                        match rustapi_result {
+                            RouteMatch::Found { .. } => "Found",
+                            RouteMatch::NotFound => "NotFound",
+                            RouteMatch::MethodNotAllowed { .. } => "MethodNotAllowed",
+                        },
+                        match router_result {
+                            RouteMatch::Found { .. } => "Found",
+                            RouteMatch::NotFound => "NotFound",
+                            RouteMatch::MethodNotAllowed { .. } => "MethodNotAllowed",
+                        }
+                    );
+                }
+            }
+        }
+    }
+
+    /// Unit test: Verify OpenAPI operations are propagated during nesting
+    #[test]
+    fn test_openapi_operations_propagated_during_nesting() {
+        async fn list_users() -> &'static str { "list users" }
+        async fn get_user() -> &'static str { "get user" }
+        async fn create_user() -> &'static str { "create user" }
+
+        // Create nested router with multiple routes
+        // Note: We use separate routes since MethodRouter doesn't support chaining
+        let users_router = Router::new()
+            .route("/", get(list_users))
+            .route("/create", post(create_user))
+            .route("/{id}", get(get_user));
+
+        // Nest under /api/v1/users
+        let app = RustApi::new().nest("/api/v1/users", users_router);
+
+        let spec = app.openapi_spec();
+
+        // Verify /api/v1/users path exists with GET
+        assert!(spec.paths.contains_key("/api/v1/users"), "Should have /api/v1/users path");
+        let users_path = spec.paths.get("/api/v1/users").unwrap();
+        assert!(users_path.get.is_some(), "Should have GET operation");
+
+        // Verify /api/v1/users/create path exists with POST
+        assert!(spec.paths.contains_key("/api/v1/users/create"), "Should have /api/v1/users/create path");
+        let create_path = spec.paths.get("/api/v1/users/create").unwrap();
+        assert!(create_path.post.is_some(), "Should have POST operation");
+
+        // Verify /api/v1/users/{id} path exists with GET
+        assert!(spec.paths.contains_key("/api/v1/users/{id}"), "Should have /api/v1/users/{{id}} path");
+        let user_path = spec.paths.get("/api/v1/users/{id}").unwrap();
+        assert!(user_path.get.is_some(), "Should have GET operation for user by id");
+
+        // Verify path parameter is added
+        let get_user_op = user_path.get.as_ref().unwrap();
+        assert!(get_user_op.parameters.is_some(), "Should have parameters");
+        let params = get_user_op.parameters.as_ref().unwrap();
+        assert!(params.iter().any(|p| p.name == "id" && p.location == "path"),
+            "Should have 'id' path parameter");
+    }
+
+    /// Unit test: Verify nested routes don't appear without nesting
+    #[test]
+    fn test_openapi_spec_empty_without_routes() {
+        let app = RustApi::new();
+        let spec = app.openapi_spec();
+
+        // Should have no paths (except potentially default ones)
+        assert!(spec.paths.is_empty(), "OpenAPI spec should have no paths without routes");
+    }
+
+    /// Unit test: Verify RustApi::nest delegates correctly to Router::nest
+    ///
+    /// **Feature: router-nesting, Property 13: RustApi Integration**
+    /// **Validates: Requirements 6.1, 6.2**
+    #[test]
+    fn test_rustapi_nest_delegates_to_router_nest() {
+        use crate::router::RouteMatch;
+
+        async fn list_users() -> &'static str { "list users" }
+        async fn get_user() -> &'static str { "get user" }
+        async fn create_user() -> &'static str { "create user" }
+
+        // Create nested router with multiple routes
+        let users_router = Router::new()
+            .route("/", get(list_users))
+            .route("/create", post(create_user))
+            .route("/{id}", get(get_user));
+
+        // Nest through RustApi
+        let app = RustApi::new().nest("/api/v1/users", users_router);
+        let router = app.into_router();
+
+        // Verify routes are registered correctly
+        let routes = router.registered_routes();
+        assert_eq!(routes.len(), 3, "Should have 3 routes registered");
+
+        // Verify route paths
+        assert!(routes.contains_key("/api/v1/users"), "Should have /api/v1/users route");
+        assert!(routes.contains_key("/api/v1/users/create"), "Should have /api/v1/users/create route");
+        assert!(routes.contains_key("/api/v1/users/:id"), "Should have /api/v1/users/:id route");
+
+        // Verify route matching works
+        match router.match_route("/api/v1/users", &Method::GET) {
+            RouteMatch::Found { params, .. } => {
+                assert!(params.is_empty(), "Root route should have no params");
+            }
+            _ => panic!("GET /api/v1/users should be found"),
+        }
+
+        match router.match_route("/api/v1/users/create", &Method::POST) {
+            RouteMatch::Found { params, .. } => {
+                assert!(params.is_empty(), "Create route should have no params");
+            }
+            _ => panic!("POST /api/v1/users/create should be found"),
+        }
+
+        match router.match_route("/api/v1/users/123", &Method::GET) {
+            RouteMatch::Found { params, .. } => {
+                assert_eq!(params.get("id"), Some(&"123".to_string()), "Should extract id param");
+            }
+            _ => panic!("GET /api/v1/users/123 should be found"),
+        }
+
+        // Verify method not allowed
+        match router.match_route("/api/v1/users", &Method::DELETE) {
+            RouteMatch::MethodNotAllowed { allowed } => {
+                assert!(allowed.contains(&Method::GET), "Should allow GET");
+            }
+            _ => panic!("DELETE /api/v1/users should return MethodNotAllowed"),
+        }
+    }
+
+    /// Unit test: Verify RustApi::nest includes routes in OpenAPI spec
+    ///
+    /// **Feature: router-nesting, Property 13: RustApi Integration**
+    /// **Validates: Requirements 6.1, 6.2**
+    #[test]
+    fn test_rustapi_nest_includes_routes_in_openapi_spec() {
+        async fn list_items() -> &'static str { "list items" }
+        async fn get_item() -> &'static str { "get item" }
+
+        // Create nested router
+        let items_router = Router::new()
+            .route("/", get(list_items))
+            .route("/{item_id}", get(get_item));
+
+        // Nest through RustApi
+        let app = RustApi::new().nest("/api/items", items_router);
+
+        // Verify OpenAPI spec
+        let spec = app.openapi_spec();
+
+        // Verify paths exist
+        assert!(spec.paths.contains_key("/api/items"), "Should have /api/items in OpenAPI");
+        assert!(spec.paths.contains_key("/api/items/{item_id}"), "Should have /api/items/{{item_id}} in OpenAPI");
+
+        // Verify operations
+        let list_path = spec.paths.get("/api/items").unwrap();
+        assert!(list_path.get.is_some(), "Should have GET operation for /api/items");
+
+        let get_path = spec.paths.get("/api/items/{item_id}").unwrap();
+        assert!(get_path.get.is_some(), "Should have GET operation for /api/items/{{item_id}}");
+
+        // Verify path parameter is added
+        let get_op = get_path.get.as_ref().unwrap();
+        assert!(get_op.parameters.is_some(), "Should have parameters");
+        let params = get_op.parameters.as_ref().unwrap();
+        assert!(params.iter().any(|p| p.name == "item_id" && p.location == "path"),
+            "Should have 'item_id' path parameter");
     }
 }
 
