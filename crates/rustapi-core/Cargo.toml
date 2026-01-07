@@ -29,6 +29,10 @@ matchit = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_urlencoded = "0.7"
+simd-json = { version = "0.14", optional = true }
+
+# Stack-allocated collections for performance
+smallvec = "1.13"
 
 # Middleware
 tower = { workspace = true }
@@ -67,7 +71,7 @@ rustapi-openapi = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 proptest = "1.4"
 [features]
-default = ["swagger-ui"]
+default = ["swagger-ui", "tracing"]
 swagger-ui = ["rustapi-openapi/swagger-ui"]
 test-utils = []
 cookies = ["dep:cookie"]
@@ -75,3 +79,5 @@ sqlx = ["dep:sqlx"]
 metrics = ["dep:prometheus"]
 compression = ["dep:flate2"]
 compression-brotli = ["compression", "dep:brotli"]
+simd-json = ["dep:simd-json"]
+tracing = []

@@ -42,6 +42,7 @@
 //! helpful error messages with resolution guidance.
 
 use crate::handler::{into_boxed_handler, BoxedHandler, Handler};
+use crate::path_params::PathParams;
 use http::{Extensions, Method};
 use matchit::Router as MatchitRouter;
 use rustapi_openapi::Operation;
@@ -524,8 +525,8 @@ impl Router {
                 let method_router = matched.value;
 
                 if let Some(handler) = method_router.get_handler(method) {
-                    // Convert params to HashMap
-                    let params: HashMap<String, String> = matched
+                    // Use stack-optimized PathParams (avoids heap allocation for ≤4 params)
+                    let params: PathParams = matched
                         .params
                         .iter()
                         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -568,7 +569,7 @@ impl Default for Router {
 pub(crate) enum RouteMatch<'a> {
     Found {
         handler: &'a BoxedHandler,
-        params: HashMap<String, String>,
+        params: PathParams,
     },
     NotFound,
     MethodNotAllowed {

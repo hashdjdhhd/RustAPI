@@ -56,8 +56,10 @@ pub use auto_schema::apply_auto_schemas;
 mod error;
 mod extract;
 mod handler;
+pub mod json;
 pub mod middleware;
 pub mod multipart;
+pub mod path_params;
 pub mod path_validation;
 mod request;
 mod response;
@@ -66,6 +68,8 @@ mod server;
 pub mod sse;
 pub mod static_files;
 pub mod stream;
+#[macro_use]
+mod tracing_macros;
 #[cfg(any(test, feature = "test-utils"))]
 mod test_client;
 

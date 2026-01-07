@@ -333,7 +333,7 @@ impl ErrorResponse {
 
         // Always log the full error details with error_id for correlation
         if err.status.is_server_error() {
-            tracing::error!(
+            crate::trace_error!(
                 error_id = %error_id,
                 error_type = %err.error_type,
                 message = %err.message,
@@ -343,7 +343,7 @@ impl ErrorResponse {
                 "Server error occurred"
             );
         } else if err.status.is_client_error() {
-            tracing::warn!(
+            crate::trace_warn!(
                 error_id = %error_id,
                 error_type = %err.error_type,
                 message = %err.message,
@@ -352,7 +352,7 @@ impl ErrorResponse {
                 "Client error occurred"
             );
         } else {
-            tracing::info!(
+            crate::trace_info!(
                 error_id = %error_id,
                 error_type = %err.error_type,
                 message = %err.message,
@@ -402,6 +402,12 @@ impl From<ApiError> for ErrorResponse {
 // Conversion from common error types
 impl From<serde_json::Error> for ApiError {
     fn from(err: serde_json::Error) -> Self {
+        ApiError::bad_request(format!("Invalid JSON: {}", err))
+    }
+}
+
+impl From<crate::json::JsonError> for ApiError {
+    fn from(err: crate::json::JsonError) -> Self {
         ApiError::bad_request(format!("Invalid JSON: {}", err))
     }
 }

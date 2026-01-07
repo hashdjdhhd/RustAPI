@@ -40,8 +40,8 @@
 //! ```
 
 use bytes::Bytes;
+use crate::path_params::PathParams;
 use http::{request::Parts, Extensions, HeaderMap, Method, Uri, Version};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// HTTP Request wrapper
@@ -51,7 +51,7 @@ pub struct Request {
     pub(crate) parts: Parts,
     pub(crate) body: Option<Bytes>,
     pub(crate) state: Arc<Extensions>,
-    pub(crate) path_params: HashMap<String, String>,
+    pub(crate) path_params: PathParams,
 }
 
 impl Request {
@@ -60,7 +60,7 @@ impl Request {
         parts: Parts,
         body: Bytes,
         state: Arc<Extensions>,
-        path_params: HashMap<String, String>,
+        path_params: PathParams,
     ) -> Self {
         Self {
             parts,
@@ -116,7 +116,7 @@ impl Request {
     }
 
     /// Get path parameters
-    pub fn path_params(&self) -> &HashMap<String, String> {
+    pub fn path_params(&self) -> &PathParams {
         &self.path_params
     }
 
@@ -140,7 +140,7 @@ impl Request {
             parts,
             body: Some(body),
             state: Arc::new(Extensions::new()),
-            path_params: HashMap::new(),
+            path_params: PathParams::new(),
         }
     }
 }
