@@ -12,95 +12,157 @@
 //! Then test: curl -H "Authorization: Bearer token123" http://127.0.0.1:8080/api/protected
 
 use rustapi_rs::prelude::*;
+use std::future::Future;
+use std::pin::Pin;
 use std::time::Instant;
-use uuid::Uuid;
+
+// Import middleware traits from rustapi_core since they're not re-exported
+use rustapi_core::middleware::{BoxedNext, MiddlewareLayer};
 
 // ============================================
 // Custom Middleware
 // ============================================
 
 /// Request ID Middleware - Adds unique ID to each request
+#[derive(Clone)]
 struct RequestIdMiddleware;
 
 impl RequestIdMiddleware {
     fn new() -> Self {
         Self
     }
+}
 
-    async fn handle<B>(&self, req: Request<B>, next: Next<B>) -> Response {
-        let request_id = Uuid::new_v4().to_string();
-        println!(
-            "📝 [{}] New request: {} {}",
-            request_id,
-            req.method(),
-            req.uri()
-        );
+impl MiddlewareLayer for RequestIdMiddleware {
+    fn call(
+        &self,
+        req: Request,
+        next: BoxedNext,
+    ) -> Pin<Box<dyn Future<Output = Response> + Send + 'static>> {
+        Box::pin(async move {
+            let request_id = generate_request_id();
+            println!(
+                "📝 [{}] New request: {} {}",
+                request_id,
+                req.method(),
+                req.uri()
+            );
 
-        // Add request ID to headers
-        let mut response = next.run(req).await;
-        response
-            .headers_mut()
-            .insert("X-Request-ID", request_id.parse().unwrap());
-        response
+            // Call next middleware/handler
+            let mut response = next(req).await;
+
+            // Add request ID to response headers
+            if let Ok(header_value) = request_id.parse() {
+                response.headers_mut().insert("X-Request-ID", header_value);
+            }
+
+            response
+        })
+    }
+
+    fn clone_box(&self) -> Box<dyn MiddlewareLayer> {
+        Box::new(self.clone())
     }
 }
 
 /// Timing Middleware - Logs request duration
+#[derive(Clone)]
 struct TimingMiddleware;
 
 impl TimingMiddleware {
     fn new() -> Self {
         Self
     }
+}
 
-    async fn handle<B>(&self, req: Request<B>, next: Next<B>) -> Response {
-        let start = Instant::now();
-        let method = req.method().clone();
-        let uri = req.uri().clone();
+impl MiddlewareLayer for TimingMiddleware {
+    fn call(
+        &self,
+        req: Request,
+        next: BoxedNext,
+    ) -> Pin<Box<dyn Future<Output = Response> + Send + 'static>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let method = req.method().to_string();
+            let uri = req.uri().to_string();
 
-        let response = next.run(req).await;
+            let response = next(req).await;
 
-        let duration = start.elapsed();
-        println!("⏱️  {} {} - {}ms", method, uri, duration.as_millis());
+            let duration = start.elapsed();
+            println!("⏱️  {} {} - {}ms", method, uri, duration.as_millis());
 
-        response
+            response
+        })
+    }
+
+    fn clone_box(&self) -> Box<dyn MiddlewareLayer> {
+        Box::new(self.clone())
     }
 }
 
 /// Custom Auth Middleware - Simple token validation
+#[derive(Clone)]
 struct CustomAuthMiddleware;
 
 impl CustomAuthMiddleware {
     fn new() -> Self {
         Self
     }
+}
 
-    async fn handle<B>(&self, req: Request<B>, next: Next<B>) -> Response {
-        // Check if route requires auth
-        let path = req.uri().path();
-        if path.starts_with("/api/protected") {
-            // Validate auth header
-            if let Some(auth_header) = req.headers().get("Authorization") {
-                if let Ok(auth_str) = auth_header.to_str() {
-                    if auth_str.starts_with("Bearer ") {
-                        let token = &auth_str[7..];
-                        if token == "token123" {
-                            println!("✅ Auth successful for {}", path);
-                            return next.run(req).await;
+impl MiddlewareLayer for CustomAuthMiddleware {
+    fn call(
+        &self,
+        req: Request,
+        next: BoxedNext,
+    ) -> Pin<Box<dyn Future<Output = Response> + Send + 'static>> {
+        Box::pin(async move {
+            let path = req.uri().path();
+
+            // Check if route requires auth
+            if path.starts_with("/api/protected") {
+                // Validate auth header
+                if let Some(auth_header) = req.headers().get("Authorization") {
+                    if let Ok(auth_str) = auth_header.to_str() {
+                        if auth_str.starts_with("Bearer ") {
+                            let token = &auth_str[7..];
+                            if token == "token123" {
+                                println!("✅ Auth successful for {}", path);
+                                return next(req).await;
+                            }
                         }
                     }
                 }
+
+                println!("❌ Auth failed for {}", path);
+                // Return 401 Unauthorized
+                use http::StatusCode;
+                return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
             }
 
-            println!("❌ Auth failed for {}", path);
-            return Response::builder()
-                .status(401)
-                .body("Unauthorized".into())
-                .unwrap();
-        }
-
-        next.run(req).await
+            next(req).await
+        })
     }
+
+    fn clone_box(&self) -> Box<dyn MiddlewareLayer> {
+        Box::new(self.clone())
+    }
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+/// Generate a simple request ID
+fn generate_request_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    format!("{:x}-{:x}", timestamp, count)
 }
 
 // ============================================
@@ -177,9 +239,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     RustApi::auto()
         // Middleware are executed in order
-        .middleware(RequestIdMiddleware::new())
-        .middleware(TimingMiddleware::new())
-        .middleware(CustomAuthMiddleware::new())
+        .layer(RequestIdMiddleware::new())
+        .layer(TimingMiddleware::new())
+        .layer(CustomAuthMiddleware::new())
         .run("127.0.0.1:8080")
         .await
 }

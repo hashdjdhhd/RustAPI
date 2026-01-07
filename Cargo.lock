@@ -1770,11 +1770,12 @@ dependencies = [
 name = "middleware-chain"
 version = "0.1.0"
 dependencies = [
+ "http",
+ "rustapi-core",
  "rustapi-rs",
  "serde",
  "tokio",
  "utoipa",
- "uuid",
 ]
 
 [[package]]
