@@ -24,6 +24,7 @@ members = [
     # "examples/graphql-api",  # TODO: Needs API updates
     "examples/microservices",
     "examples/middleware-chain",
+    "examples/cors-test",
     "benches/toon_bench",
 ]
 
