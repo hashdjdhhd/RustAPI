@@ -2718,6 +2718,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustapi-bench"
+version = "0.1.8"
+dependencies = [
+ "criterion",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+]
+
+[[package]]
 name = "rustapi-core"
 version = "0.1.8"
 dependencies = [

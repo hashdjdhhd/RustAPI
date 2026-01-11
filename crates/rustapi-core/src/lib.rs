@@ -87,7 +87,7 @@ pub mod __private {
 
 // Public API
 pub use app::{RustApi, RustApiConfig};
-pub use error::{get_environment, ApiError, Environment, Result};
+pub use error::{get_environment, ApiError, Environment, FieldError, Result};
 #[cfg(feature = "cookies")]
 pub use extract::Cookies;
 pub use extract::{

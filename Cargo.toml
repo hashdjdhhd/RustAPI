@@ -26,6 +26,7 @@ members = [
     "examples/middleware-chain",
     # "examples/cors-test",  # TODO: Needs implementation
     "benches/toon_bench",
+    "benches/rustapi_bench",
 ]
 
 [workspace.package]
