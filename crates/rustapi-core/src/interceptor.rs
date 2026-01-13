@@ -219,7 +219,7 @@ mod tests {
 
         Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
             PathParams::new(),
         )
@@ -353,7 +353,9 @@ mod tests {
         fn intercept(&self, mut request: Request) -> Request {
             // Store the value in extensions since we can't modify headers directly
             // In a real implementation, we'd need mutable header access
-            request.extensions_mut().insert(format!("{}:{}", self.header_name, self.header_value));
+            request
+                .extensions_mut()
+                .insert(format!("{}:{}", self.header_name, self.header_value));
             request
         }
 
@@ -486,23 +488,34 @@ mod tests {
     #[test]
     fn test_response_header_modification() {
         let mut chain = InterceptorChain::new();
-        chain.add_response_interceptor(
-            HeaderModifyingResponseInterceptor::new("x-custom", "value1")
-        );
-        chain.add_response_interceptor(
-            HeaderModifyingResponseInterceptor::new("x-another", "value2")
-        );
+        chain.add_response_interceptor(HeaderModifyingResponseInterceptor::new(
+            "x-custom", "value1",
+        ));
+        chain.add_response_interceptor(HeaderModifyingResponseInterceptor::new(
+            "x-another",
+            "value2",
+        ));
 
         let response = create_test_response(StatusCode::OK);
         let modified = chain.intercept_response(response);
 
         // Both headers should be present
         assert_eq!(
-            modified.headers().get("x-custom").unwrap().to_str().unwrap(),
+            modified
+                .headers()
+                .get("x-custom")
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "value1"
         );
         assert_eq!(
-            modified.headers().get("x-another").unwrap().to_str().unwrap(),
+            modified
+                .headers()
+                .get("x-another")
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "value2"
         );
     }

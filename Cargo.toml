@@ -25,6 +25,9 @@ members = [
     "examples/rate-limit-demo",
     # "examples/graphql-api",  # TODO: Needs API updates
     "examples/microservices",
+    "examples/microservices-advanced",
+    "examples/event-sourcing",
+    "examples/serverless-lambda",
     "examples/middleware-chain",
     # "examples/cors-test",  # TODO: Needs implementation
     "benches/toon_bench",

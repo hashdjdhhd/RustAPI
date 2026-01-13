@@ -12,11 +12,11 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let app = RustApi::new()
-//!         .layer(Box::new(
+//!         .layer(
 //!             ApiKeyLayer::new()
 //!                 .header("X-API-Key")
 //!                 .add_key("your-secret-api-key-here")
-//!         ))
+//!         )
 //!         .run("0.0.0.0:3000")
 //!         .await
 //!         .unwrap();

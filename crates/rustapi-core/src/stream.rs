@@ -208,7 +208,11 @@ enum StreamingInner {
     Hyper(hyper::body::Incoming),
     Generic(
         std::pin::Pin<
-            Box<dyn futures_util::Stream<Item = Result<Bytes, crate::error::ApiError>> + Send>,
+            Box<
+                dyn futures_util::Stream<Item = Result<Bytes, crate::error::ApiError>>
+                    + Send
+                    + Sync,
+            >,
         >,
     ),
 }
@@ -226,7 +230,10 @@ impl StreamingBody {
     /// Create from a generic stream
     pub fn from_stream<S>(stream: S, limit: Option<usize>) -> Self
     where
-        S: futures_util::Stream<Item = Result<Bytes, crate::error::ApiError>> + Send + 'static,
+        S: futures_util::Stream<Item = Result<Bytes, crate::error::ApiError>>
+            + Send
+            + Sync
+            + 'static,
     {
         Self {
             inner: StreamingInner::Generic(Box::pin(stream)),

@@ -126,8 +126,10 @@ impl Request {
     pub fn take_body(&mut self) -> Option<Bytes> {
         match std::mem::replace(&mut self.body, BodyVariant::Consumed) {
             BodyVariant::Buffered(bytes) => Some(bytes),
-            BodyVariant::Streaming(_) => None,
-            BodyVariant::Consumed => None,
+            other => {
+                self.body = other;
+                None
+            }
         }
     }
 
@@ -135,8 +137,10 @@ impl Request {
     pub fn take_stream(&mut self) -> Option<Incoming> {
         match std::mem::replace(&mut self.body, BodyVariant::Consumed) {
             BodyVariant::Streaming(stream) => Some(stream),
-            BodyVariant::Buffered(_) => None, // Could convert Bytes to stream, but for now strict
-            BodyVariant::Consumed => None,
+            other => {
+                self.body = other;
+                None
+            }
         }
     }
 

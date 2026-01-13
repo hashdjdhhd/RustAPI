@@ -12,7 +12,7 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let app = RustApi::new()
-//!         .layer(Box::new(SecurityHeadersLayer::new()))
+//!         .layer(SecurityHeadersLayer::new())
 //!         .run("0.0.0.0:3000")
 //!         .await
 //!         .unwrap();

@@ -1,9 +1,10 @@
 use futures_util::StreamExt;
 use http::StatusCode;
-use rustapi_core::extract::BodyStream;
-use rustapi_core::router::post;
-use rustapi_core::test_client::TestClient;
+use proptest::prelude::*;
+use rustapi_core::post;
+use rustapi_core::BodyStream;
 use rustapi_core::RustApi;
+use rustapi_core::TestClient;
 
 #[tokio::test]
 async fn test_streaming_body_buffered_small() {
@@ -22,12 +23,6 @@ async fn test_streaming_body_buffered_small() {
     let response = client.post_json("/stream", &body).await;
 
     // "Hello Streaming World" (JSON encoded string) -> "\"Hello Streaming World\""
-    // Wait, post_json serializes string as JSON string?
-    // "Hello Streaming World" -> "\"Hello Streaming World\"".
-
-    // TestClient::post_json takes reference.
-    // serde_json::to_vec(&"str") -> "\"str\"".
-
     response.assert_status(StatusCode::OK);
     // output should be exactly input json bytes
     let output = response.text();
@@ -57,21 +52,7 @@ async fn test_streaming_body_buffered_large_fail() {
 
     let app = RustApi::new().route("/stream", post(handler));
 
-    // We need to bypass BodyLimitLayer in TestClient?
-    // TestClient adds BodyLimitLayer default (also 10MB?).
-    // If BodyLimitLayer rejects it first, we test generic body limit, not StreamingBody limit.
-
-    // BodyLimitLayer default is DEFAULT_BODY_LIMIT.
-    // Let's see what DEFAULT_BODY_LIMIT is.
-    // Likely 2MB or similar?
-
-    // If BodyLimitLayer rejects it, it returns 413 Payload Too Large.
-    // That verifies memory bounds too.
-
-    // But we want to test StreamingBody bounds specifically.
-    // StreamingBody bounds apply even if BodyLimitLayer was bypassed (e.g. infinite limit).
-
-    // TestClient::with_body_limit can set larger limit.
+    // TestClient::with_body_limit can set larger limit for the middleware layer
     let client = TestClient::with_body_limit(app, body_len + 1024);
 
     // Now BodyLimitLayer should pass it.
@@ -79,10 +60,62 @@ async fn test_streaming_body_buffered_large_fail() {
     // So StreamingBody should fail.
 
     let response = client
-        .request(rustapi_core::test_client::TestRequest::post("/stream").body(bytes))
+        .request(rustapi_core::TestRequest::post("/stream").body(bytes))
         .await;
 
     // Handler catches error and returns string "Error: ..."
     response.assert_status(StatusCode::OK);
     response.assert_body_contains("payload_too_large");
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(20))] // Fewer cases as these are async/heavy
+
+    #[test]
+    fn prop_streaming_body_limits(
+        // Vary body size around the 10MB limit (10 * 1024 * 1024)
+        // We test small sizes, near limit, and over limit
+        // Using smaller limits for property test efficiency?
+        // But StreamingBody defaults to 10MB.
+        // Let's rely on logic correctness and test:
+        // 1. Small bodies pass
+        // 2. We can't easily change StreamingBody default limit without Config injection (TODO).
+        // So we test with smaller static limit if possible or just standard 10MB is too large for 100 iterations.
+
+        // Actually, we can just test that *any* body under 10MB passes correctly.
+        body_len in 0usize..100_000usize
+    ) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let body = vec![0u8; body_len];
+            let bytes = bytes::Bytes::from(body.clone());
+
+            async fn handler(mut stream: BodyStream) -> String {
+                let mut size = 0;
+                while let Some(chunk) = stream.next().await {
+                    match chunk {
+                        Ok(b) => size += b.len(),
+                        Err(e) => return format!("Error: {}", e),
+                    }
+                }
+                format!("Size: {}", size)
+            }
+
+            let app = RustApi::new().route("/stream", post(handler));
+            let client = TestClient::new(app); // Default limit 1MB for BodyLimitLayer... wait.
+
+            // BodyLimitLayer defaults to 1MB (1024*1024).
+            // Our test body is up to 100KB, so it passes BodyLimitLayer.
+            // StreamingBody default is 10MB.
+
+            // So this should always succeed.
+
+            let response = client
+                .request(rustapi_core::TestRequest::post("/stream").body(bytes))
+                .await;
+
+            response.assert_status(StatusCode::OK);
+            assert_eq!(response.text(), format!("Size: {}", body_len));
+        });
+    }
 }

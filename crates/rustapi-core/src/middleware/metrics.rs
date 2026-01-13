@@ -287,7 +287,7 @@ mod tests {
 
         crate::request::Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
             HashMap::new().into(),
         )

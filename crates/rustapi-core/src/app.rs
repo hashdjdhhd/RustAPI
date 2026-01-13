@@ -1049,7 +1049,12 @@ mod tests {
             .unwrap();
         let (parts, _) = req.into_parts();
 
-        let request = Request::new(parts, Bytes::new(), router.state_ref(), PathParams::new());
+        let request = Request::new(
+            parts,
+            crate::request::BodyVariant::Buffered(Bytes::new()),
+            router.state_ref(),
+            PathParams::new(),
+        );
         let State(value) = State::<u32>::from_request_parts(&request).unwrap();
         assert_eq!(value, 123u32);
     }

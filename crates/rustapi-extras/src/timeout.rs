@@ -13,7 +13,7 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let app = RustApi::new()
-//!         .layer(Box::new(TimeoutLayer::new(Duration::from_secs(30))))
+//!         .layer(TimeoutLayer::new(Duration::from_secs(30)))
 //!         .run("0.0.0.0:3000")
 //!         .await
 //!         .unwrap();

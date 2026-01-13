@@ -19,11 +19,11 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let app = RustApi::new()
-//!         .layer(Box::new(
+//!         .layer(
 //!             CircuitBreakerLayer::new()
 //!                 .failure_threshold(5)
 //!                 .timeout(Duration::from_secs(30))
-//!         ))
+//!         )
 //!         .run("0.0.0.0:3000")
 //!         .await
 //!         .unwrap();

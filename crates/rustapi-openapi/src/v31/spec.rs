@@ -226,12 +226,6 @@ impl OpenApi31Spec {
     pub fn to_json_pretty(&self) -> String {
         serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
-
-    /// Convert to YAML string
-    #[cfg(feature = "yaml")]
-    pub fn to_yaml(&self) -> String {
-        serde_yaml::to_string(self).unwrap_or_else(|_| "".to_string())
-    }
 }
 
 /// API information for OpenAPI 3.1

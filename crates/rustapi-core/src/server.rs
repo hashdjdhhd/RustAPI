@@ -8,7 +8,7 @@ use crate::response::IntoResponse;
 use crate::router::{RouteMatch, Router};
 use bytes::Bytes;
 use http::{header, StatusCode};
-use http_body_util::{BodyExt, Full};
+use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;

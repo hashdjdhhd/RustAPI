@@ -13,11 +13,11 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let app = RustApi::new()
-//!         .layer(Box::new(
+//!         .layer(
 //!             RetryLayer::new()
 //!                 .max_attempts(3)
 //!                 .initial_backoff(Duration::from_millis(100))
-//!         ))
+//!         )
 //!         .run("0.0.0.0:3000")
 //!         .await
 //!         .unwrap();

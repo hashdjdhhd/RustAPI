@@ -920,6 +920,26 @@ impl OperationModifier for Body {
     }
 }
 
+// BodyStream - Generic binary stream (Same as Body)
+impl OperationModifier for BodyStream {
+    fn update_operation(op: &mut Operation) {
+        let mut content = HashMap::new();
+        content.insert(
+            "application/octet-stream".to_string(),
+            MediaType {
+                schema: SchemaRef::Inline(
+                    serde_json::json!({ "type": "string", "format": "binary" }),
+                ),
+            },
+        );
+
+        op.request_body = Some(RequestBody {
+            required: true,
+            content,
+        });
+    }
+}
+
 // ResponseModifier implementations for extractors
 
 // Json<T> - 200 OK with schema T
@@ -976,7 +996,7 @@ mod tests {
 
         Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
             PathParams::new(),
         )
@@ -997,7 +1017,7 @@ mod tests {
 
         Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
             PathParams::new(),
         )
@@ -1173,7 +1193,7 @@ mod tests {
 
                 let request = Request::new(
                     parts,
-                    Bytes::new(),
+                    crate::request::BodyVariant::Buffered(Bytes::new()),
                     Arc::new(Extensions::new()),
                     PathParams::new(),
                 );
@@ -1235,7 +1255,7 @@ mod tests {
 
                 let request = Request::new(
                     parts,
-                    Bytes::new(),
+                    crate::request::BodyVariant::Buffered(Bytes::new()),
                     Arc::new(Extensions::new()),
                     PathParams::new(),
                 );
@@ -1335,7 +1355,7 @@ mod tests {
 
         let request = Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
             PathParams::new(),
         );

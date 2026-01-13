@@ -93,8 +93,8 @@ pub use error::{get_environment, ApiError, Environment, FieldError, Result};
 #[cfg(feature = "cookies")]
 pub use extract::Cookies;
 pub use extract::{
-    Body, ClientIp, Extension, FromRequest, FromRequestParts, HeaderValue, Headers, Json, Path,
-    Query, State, ValidatedJson,
+    Body, BodyStream, ClientIp, Extension, FromRequest, FromRequestParts, HeaderValue, Headers,
+    Json, Path, Query, State, ValidatedJson,
 };
 pub use handler::{
     delete_route, get_route, patch_route, post_route, put_route, Handler, HandlerService, Route,
@@ -113,6 +113,6 @@ pub use response::{Created, Html, IntoResponse, NoContent, Redirect, Response, W
 pub use router::{delete, get, patch, post, put, MethodRouter, Router};
 pub use sse::{sse_response, KeepAlive, Sse, SseEvent};
 pub use static_files::{serve_dir, StaticFile, StaticFileConfig};
-pub use stream::StreamBody;
+pub use stream::{StreamBody, StreamingBody, StreamingConfig};
 #[cfg(any(test, feature = "test-utils"))]
 pub use test_client::{TestClient, TestRequest, TestResponse};

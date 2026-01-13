@@ -12,7 +12,7 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let app = RustApi::new()
-//!         .layer(Box::new(LoggingLayer::new()))
+//!         .layer(LoggingLayer::new())
 //!         .run("0.0.0.0:3000")
 //!         .await
 //!         .unwrap();

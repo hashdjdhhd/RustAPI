@@ -185,7 +185,7 @@ mod tests {
 
         Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
             PathParams::new(),
         )
