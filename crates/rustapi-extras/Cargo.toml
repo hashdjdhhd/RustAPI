@@ -40,6 +40,10 @@ dashmap = { version = "6.0", optional = true }
 # SQLx (feature-gated)
 sqlx = { version = "0.8", optional = true, default-features = false }
 
+# Diesel (feature-gated)
+diesel = { version = "2.2", optional = true, default-features = false }
+r2d2 = { version = "0.8", optional = true }
+
 # Configuration (feature-gated)
 dotenvy = { version = "0.15", optional = true }
 envy = { version = "0.4", optional = true }
@@ -53,6 +57,20 @@ urlencoding = { version = "2.1", optional = true }
 # HTTP client for webhook exporter (feature-gated)
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["json", "rustls-tls"] }
 
+# OpenTelemetry (feature-gated)
+opentelemetry = { version = "0.22", optional = true }
+opentelemetry_sdk = { version = "0.22", optional = true, features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.15", optional = true }
+opentelemetry-semantic-conventions = { version = "0.14", optional = true }
+tracing-opentelemetry = { version = "0.23", optional = true }
+
+# CSRF (feature-gated)
+rand = { version = "0.8", optional = true }
+base64 = { version = "0.22", optional = true }
+
+# OAuth2 (feature-gated)
+sha2 = { version = "0.10", optional = true }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 proptest = "1.4"
@@ -63,18 +81,49 @@ serial_test = "3.2"
 [features]
 default = []
 
-# Individual features
+# Individual  features
 jwt = ["dep:jsonwebtoken"]
 cors = []
 rate-limit = ["dep:dashmap"]
 config = ["dep:dotenvy", "dep:envy"]
 cookies = ["dep:cookie"]
 sqlx = ["dep:sqlx"]
+sqlx-postgres = ["sqlx", "sqlx/postgres", "sqlx/runtime-tokio"]
+sqlx-mysql = ["sqlx", "sqlx/mysql", "sqlx/runtime-tokio"]
+sqlx-sqlite = ["sqlx", "sqlx/sqlite", "sqlx/runtime-tokio"]
+diesel = ["dep:diesel", "dep:r2d2"]
+diesel-postgres = ["diesel", "diesel/postgres"]
+diesel-mysql = ["diesel", "diesel/mysql"]
+diesel-sqlite = ["diesel", "diesel/sqlite"]
 insight = ["dep:dashmap", "dep:urlencoding"]
 webhook = ["insight", "dep:reqwest"]
+
+# Phase 11 features
+timeout = []
+guard = ["jwt"]  # Guard requires JWT for auth
+logging = []
+circuit-breaker = []
+retry = []
+security-headers = []
+api-key = []
+cache = ["dep:dashmap"]
+dedup = ["dep:dashmap"]
+sanitization = []
+
+# Phase 5: Observability features
+otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:opentelemetry-semantic-conventions", "dep:tracing-opentelemetry"]
+structured-logging = []
+
+# Phase 6: Security features
+csrf = ["dep:cookie", "dep:rand", "dep:base64"]
+oauth2-client = ["dep:sha2", "dep:rand", "dep:base64", "dep:reqwest", "dep:urlencoding"]
+audit = []
 
 # Meta feature that enables all security features
 extras = ["jwt", "cors", "rate-limit"]
 
-# Full feature set
-full = ["extras", "config", "cookies", "sqlx", "insight", "webhook"]
+# Observability meta feature
+observability = ["otel", "structured-logging"]
+
+# Full feature set (retry temporarily disabled)
+full = ["extras", "config", "cookies", "sqlx", "insight", "webhook", "timeout", "guard", "logging", "circuit-breaker", "security-headers", "api-key", "cache", "dedup", "sanitization", "retry", "otel", "structured-logging", "csrf", "oauth2-client", "audit"]

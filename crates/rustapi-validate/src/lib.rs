@@ -22,14 +22,37 @@
 //! }
 //! ```
 //!
+//! ## V2 Validation Engine
+//!
+//! The v2 module provides a custom validation engine with async support:
+//!
+//! ```rust,ignore
+//! use rustapi_validate::v2::prelude::*;
+//!
+//! #[derive(Validate)]
+//! struct CreateUser {
+//!     #[validate(email, message = "Invalid email format")]
+//!     email: String,
+//!     
+//!     #[validate(length(min = 3, max = 50))]
+//!     username: String,
+//!     
+//!     #[validate(async_unique(table = "users", column = "email"))]
+//!     unique_email: String,
+//! }
+//! ```
+//!
 //! ## Validation Rules
 //!
 //! - `email` - Validates email format
 //! - `length(min = X, max = Y)` - String length validation
 //! - `range(min = X, max = Y)` - Numeric range validation
 //! - `regex = "..."` - Regex pattern validation
-//! - `non_empty` - Non-empty string/collection validation
-//! - `nested` - Validates nested structs
+//! - `url` - URL format validation
+//! - `required` - Non-empty string/option validation
+//! - `async_unique(table, column)` - Database uniqueness check
+//! - `async_exists(table, column)` - Database existence check
+//! - `async_api(endpoint)` - External API validation
 //!
 //! ## Error Format
 //!
@@ -48,8 +71,15 @@
 //! }
 //! ```
 
+pub mod custom;
 mod error;
 mod validate;
+
+/// V2 validation engine with async support.
+///
+/// This module provides a custom validation engine that replaces the external
+/// `validator` dependency and adds support for async validation operations.
+pub mod v2;
 
 pub use error::{FieldError, ValidationError};
 pub use validate::Validate;
@@ -59,11 +89,20 @@ pub use validate::Validate;
 // For now, we use validator's derive with our own trait
 pub use validator::Validate as ValidatorValidate;
 
+// Re-export the v2 Validate derive macro
+pub use rustapi_macros::Validate as DeriveValidate;
+
 /// Prelude module for validation
 pub mod prelude {
     pub use crate::error::{FieldError, ValidationError};
     pub use crate::validate::Validate;
     pub use validator::Validate as ValidatorValidate;
+    
+    // Re-export v2 prelude
+    pub use crate::v2::prelude::*;
+    
+    // Re-export derive macro
+    pub use rustapi_macros::Validate as DeriveValidate;
 }
 
 #[cfg(test)]

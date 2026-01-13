@@ -57,6 +57,20 @@ ws = ["dep:rustapi-ws"]
 # Template engine support
 view = ["dep:rustapi-view"]
 
+# New Phase 11 & Observability features
+timeout = ["dep:rustapi-extras", "rustapi-extras/timeout"]
+guard = ["dep:rustapi-extras", "rustapi-extras/guard"]
+logging = ["dep:rustapi-extras", "rustapi-extras/logging"]
+circuit-breaker = ["dep:rustapi-extras", "rustapi-extras/circuit-breaker"]
+retry = ["dep:rustapi-extras", "rustapi-extras/retry"]
+security-headers = ["dep:rustapi-extras", "rustapi-extras/security-headers"]
+api-key = ["dep:rustapi-extras", "rustapi-extras/api-key"]
+cache = ["dep:rustapi-extras", "rustapi-extras/cache"]
+dedup = ["dep:rustapi-extras", "rustapi-extras/dedup"]
+sanitization = ["dep:rustapi-extras", "rustapi-extras/sanitization"]
+otel = ["dep:rustapi-extras", "rustapi-extras/otel"]
+structured-logging = ["dep:rustapi-extras", "rustapi-extras/structured-logging"]
+
 # Meta features
 extras = ["jwt", "cors", "rate-limit"]
-full = ["extras", "config", "cookies", "sqlx", "toon", "insight", "compression", "ws", "view"]
+full = ["extras", "config", "cookies", "sqlx", "toon", "insight", "compression", "ws", "view", "timeout", "guard", "logging", "circuit-breaker", "security-headers", "api-key", "cache", "dedup", "sanitization", "otel", "structured-logging"]

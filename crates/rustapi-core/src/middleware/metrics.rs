@@ -289,7 +289,7 @@ mod tests {
             parts,
             Bytes::new(),
             Arc::new(Extensions::new()),
-            HashMap::new(),
+            HashMap::new().into(),
         )
     }
 

@@ -189,6 +189,60 @@ impl MethodRouter {
         self.handlers.insert(method.clone(), handler);
         self.operations.insert(method, operation);
     }
+    /// Add a GET handler
+    pub fn get<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::GET, into_boxed_handler(handler), op)
+    }
+
+    /// Add a POST handler
+    pub fn post<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::POST, into_boxed_handler(handler), op)
+    }
+
+    /// Add a PUT handler
+    pub fn put<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::PUT, into_boxed_handler(handler), op)
+    }
+
+    /// Add a PATCH handler
+    pub fn patch<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::PATCH, into_boxed_handler(handler), op)
+    }
+
+    /// Add a DELETE handler
+    pub fn delete<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::DELETE, into_boxed_handler(handler), op)
+    }
 }
 
 impl Default for MethodRouter {

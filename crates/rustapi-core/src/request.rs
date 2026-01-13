@@ -39,8 +39,8 @@
 //! // Subsequent calls return None
 //! ```
 
-use bytes::Bytes;
 use crate::path_params::PathParams;
+use bytes::Bytes;
 use http::{request::Parts, Extensions, HeaderMap, Method, Uri, Version};
 use std::sync::Arc;
 
@@ -142,6 +142,33 @@ impl Request {
             state: Arc::new(Extensions::new()),
             path_params: PathParams::new(),
         }
+    }
+    /// Try to clone the request.
+    ///
+    /// This creates a deep copy of the request, including headers, body (if present),
+    /// path params, and shared state.
+    ///
+    /// Note: Request extensions stored in `parts` are NOT cloned because `http::Extensions`
+    /// does not support cloning. However, the shared state (`Arc<Extensions>`) IS preserved.
+    pub fn try_clone(&self) -> Option<Self> {
+        let mut builder = http::Request::builder()
+            .method(self.method().clone())
+            .uri(self.uri().clone())
+            .version(self.version());
+
+        if let Some(headers) = builder.headers_mut() {
+            *headers = self.headers().clone();
+        }
+
+        let req = builder.body(()).ok()?;
+        let (parts, _) = req.into_parts();
+
+        Some(Self {
+            parts,
+            body: self.body.clone(),
+            state: self.state.clone(),
+            path_params: self.path_params.clone(),
+        })
     }
 }
 

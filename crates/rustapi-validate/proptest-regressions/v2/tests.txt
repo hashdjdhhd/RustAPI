@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 457e21f9bd8104488393d394f93e2e19566cb803d3c17600764e3d2b0d32f3d5 # shrinks to rule = Range { min: Some(248.66788485274841), max: None, message: None }
+cc 28a4b625255e4485d22175e40a16f59160339af54a262118f2bd62e71e43bda5 # shrinks to create_value = "y", update_value = "y", always_value = "a"

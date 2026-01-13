@@ -1,7 +1,8 @@
 //! WebSocket extractor
 
 use crate::upgrade::{validate_upgrade_request, WebSocketUpgrade};
-use rustapi_core::{ApiError, FromRequestParts, Request, Result};
+use hyper::upgrade::OnUpgrade;
+use rustapi_core::{ApiError, FromRequest, Request, Result};
 use rustapi_openapi::{Operation, OperationModifier};
 
 /// WebSocket extractor for upgrading HTTP connections to WebSocket
@@ -35,6 +36,8 @@ use rustapi_openapi::{Operation, OperationModifier};
 pub struct WebSocket {
     sec_key: String,
     protocols: Vec<String>,
+    extensions: Option<String>,
+    on_upgrade: Option<OnUpgrade>,
 }
 
 impl WebSocket {
@@ -42,12 +45,12 @@ impl WebSocket {
     ///
     /// The provided callback will be called with the established WebSocket
     /// stream once the upgrade is complete.
-    pub fn on_upgrade<F, Fut>(self, callback: F) -> WebSocketUpgrade
+    pub fn on_upgrade<F, Fut>(mut self, callback: F) -> WebSocketUpgrade
     where
         F: FnOnce(crate::WebSocketStream) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
-        let upgrade = WebSocketUpgrade::new(self.sec_key);
+        let upgrade = WebSocketUpgrade::new(self.sec_key, self.extensions, self.on_upgrade.take());
 
         // If protocols were requested, select the first one
         let upgrade = if let Some(protocol) = self.protocols.first() {
@@ -70,8 +73,8 @@ impl WebSocket {
     }
 }
 
-impl FromRequestParts for WebSocket {
-    fn from_request_parts(req: &Request) -> Result<Self> {
+impl FromRequest for WebSocket {
+    async fn from_request(req: &mut Request) -> Result<Self> {
         let headers = req.headers();
         let method = req.method();
 
@@ -85,7 +88,21 @@ impl FromRequestParts for WebSocket {
             .map(|s| s.split(',').map(|p| p.trim().to_string()).collect())
             .unwrap_or_default();
 
-        Ok(Self { sec_key, protocols })
+        // Get extensions
+        let extensions = headers
+            .get("Sec-WebSocket-Extensions")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+
+        // Capture OnUpgrade future
+        let on_upgrade = req.extensions_mut().remove::<OnUpgrade>();
+
+        Ok(Self {
+            sec_key,
+            protocols,
+            extensions,
+            on_upgrade,
+        })
     }
 }
 

@@ -56,6 +56,8 @@ pub use auto_schema::apply_auto_schemas;
 mod error;
 mod extract;
 mod handler;
+pub mod health;
+pub mod interceptor;
 pub mod json;
 pub mod middleware;
 pub mod multipart;
@@ -98,6 +100,8 @@ pub use handler::{
     delete_route, get_route, patch_route, post_route, put_route, Handler, HandlerService, Route,
     RouteHandler,
 };
+pub use health::{HealthCheck, HealthCheckBuilder, HealthCheckResult, HealthStatus};
+pub use interceptor::{InterceptorChain, RequestInterceptor, ResponseInterceptor};
 #[cfg(feature = "compression")]
 pub use middleware::CompressionLayer;
 pub use middleware::{BodyLimitLayer, RequestId, RequestIdLayer, TracingLayer, DEFAULT_BODY_LIMIT};
