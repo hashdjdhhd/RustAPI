@@ -3265,6 +3265,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustapi-testing"
+version = "0.1.8"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "http 1.4.0",
+ "http-body-util",
+ "hyper 1.8.1",
+ "hyper-util",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "rustapi-toon"
 version = "0.1.8"
 dependencies = [

@@ -190,3 +190,12 @@ pub use oauth2::{
     AuthorizationRequest, CsrfState, OAuth2Client, OAuth2Config, PkceVerifier, Provider,
     TokenError, TokenResponse,
 };
+
+#[cfg(feature = "audit")]
+pub mod audit;
+
+#[cfg(feature = "audit")]
+pub use audit::{
+    AuditAction, AuditEvent, AuditQuery, AuditQueryBuilder, AuditSeverity, AuditStore,
+    ComplianceInfo, FileAuditStore, InMemoryAuditStore,
+};

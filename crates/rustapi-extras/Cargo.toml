@@ -117,7 +117,7 @@ structured-logging = []
 # Phase 6: Security features
 csrf = ["dep:cookie", "dep:rand", "dep:base64"]
 oauth2-client = ["dep:sha2", "dep:rand", "dep:base64", "dep:reqwest", "dep:urlencoding"]
-audit = []
+audit = ["dep:rand"]
 
 # Meta feature that enables all security features
 extras = ["jwt", "cors", "rate-limit"]
