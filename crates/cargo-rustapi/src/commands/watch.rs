@@ -48,7 +48,7 @@ pub async fn watch(args: WatchArgs) -> Result<()> {
     // Ignore common directories to improve performance
     cmd.args(["-i", ".git", "-i", "target", "-i", "node_modules"]);
 
-    cmd.spawn().await?.wait().await?;
+    cmd.spawn()?.wait().await?;
 
     Ok(())
 }

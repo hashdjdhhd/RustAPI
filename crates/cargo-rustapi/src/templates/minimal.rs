@@ -55,8 +55,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 "#;
 
     // Write files in parallel for better performance
-    let f1 = fs::write(format!("{name}/Cargo.toml"), cargo_toml);
-    let f2 = fs::write(format!("{name}/src/main.rs"), main_rs);
+    let f1 = async {
+        fs::write(format!("{name}/Cargo.toml"), cargo_toml)
+            .await
+            .map_err(anyhow::Error::from)
+    };
+    let f2 = async {
+        fs::write(format!("{name}/src/main.rs"), main_rs)
+            .await
+            .map_err(anyhow::Error::from)
+    };
     let f3 = common::generate_gitignore(name);
 
     tokio::try_join!(f1, f2, f3)?;
