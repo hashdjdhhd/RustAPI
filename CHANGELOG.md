@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-01-14
+
+### Documentation
+- Updated READMEs for all crates with comprehensive examples and better structure.
+- Improved `Cargo.toml` descriptions and documentation links.
+
 ## [0.1.9] - 2026-01-14
 
 ### Added
