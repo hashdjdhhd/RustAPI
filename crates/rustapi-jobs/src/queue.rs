@@ -157,9 +157,13 @@ impl EnqueueOptions {
 #[cfg(test)]
 mod property_tests {
     use super::*;
-    use crate::backend::memory::MemoryBackend;
+    use crate::backend::memory::InMemoryBackend as MemoryBackend;
     use proptest::prelude::*;
     use serde::{Deserialize, Serialize};
+    use async_trait::async_trait;
+    use crate::JobError;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
 
     /// **Feature: v1-features-roadmap, Properties 21-22: Job persistence and retry**
     /// **Validates: Requirements 10.1, 10.2**
@@ -193,7 +197,7 @@ mod property_tests {
 
             let should_fail = *self.should_fail.read().await;
             if should_fail {
-                return Err(JobError::ExecutionFailed(format!(
+                return Err(JobError::WorkerError(format!(
                     "Test failure for value {}",
                     data.value
                 )));

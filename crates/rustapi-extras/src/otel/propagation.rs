@@ -380,7 +380,7 @@ mod property_tests {
             prop_assert_eq!(child.trace_id, parent.trace_id);
 
             // Child MUST have different span_id
-            prop_assert_ne!(child.span_id, parent.span_id);
+            prop_assert_ne!(child.span_id, parent.span_id.clone());
 
             // Child's parent_span_id MUST be parent's span_id
             prop_assert_eq!(child.parent_span_id, Some(parent.span_id.clone()));
@@ -395,9 +395,9 @@ mod property_tests {
             let child3 = child2.child();
 
             // All spans in the chain MUST have same trace_id
-            prop_assert_eq!(child1.trace_id, root.trace_id);
-            prop_assert_eq!(child2.trace_id, root.trace_id);
-            prop_assert_eq!(child3.trace_id, root.trace_id);
+            prop_assert_eq!(child1.trace_id, root.trace_id.clone());
+            prop_assert_eq!(child2.trace_id, root.trace_id.clone());
+            prop_assert_eq!(child3.trace_id, root.trace_id.clone());
 
             // Each span MUST have unique span_id
             let span_ids = vec![&root.span_id, &child1.span_id, &child2.span_id, &child3.span_id];
@@ -423,8 +423,8 @@ mod property_tests {
             let child2 = child1.child();
 
             // Correlation ID MUST propagate through entire chain
-            prop_assert_eq!(child1.correlation_id, correlation_id);
-            prop_assert_eq!(child2.correlation_id, correlation_id);
+            prop_assert_eq!(child1.correlation_id, correlation_id.clone());
+            prop_assert_eq!(child2.correlation_id, correlation_id.clone());
         }
 
         /// Property 13: Traceparent format conforms to W3C spec
