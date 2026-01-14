@@ -108,7 +108,7 @@ mod property_tests {
             let token_str = token1.as_str();
             let token2 = CsrfToken::new(token_str.to_string());
 
-            prop_assert_eq!(token1, token2);
+            prop_assert_eq!(token1.clone(), token2.clone());
             prop_assert_eq!(token1.as_str(), token2.as_str());
         }
 
@@ -120,7 +120,7 @@ mod property_tests {
 
             // With cryptographically secure random generation,
             // two tokens should never be equal
-            prop_assert_ne!(token1, token2);
+            prop_assert_ne!(token1.clone(), token2.clone());
             prop_assert_ne!(token1.as_str(), token2.as_str());
         }
 

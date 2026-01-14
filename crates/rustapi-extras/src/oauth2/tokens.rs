@@ -403,7 +403,7 @@ mod property_tests {
             let header = response.authorization_header();
 
             let expected = format!("{} {}", token_type, access_token);
-            prop_assert_eq!(header, expected);
+            prop_assert_eq!(header.clone(), expected);
 
             // Header should start with token type
             prop_assert!(header.starts_with(&token_type));
@@ -471,7 +471,7 @@ mod property_tests {
             let state2 = CsrfState::generate();
 
             // Each state should be unique
-            prop_assert_ne!(state1, state2);
+            prop_assert_ne!(state1.clone(), state2.clone());
             prop_assert_ne!(state1.as_str(), state2.as_str());
         }
 
@@ -498,7 +498,7 @@ mod property_tests {
             let state1 = CsrfState::new(state_str.clone());
             let state2 = CsrfState::new(state1.as_str().to_string());
 
-            prop_assert_eq!(state1, state2);
+            prop_assert_eq!(state1.clone(), state2.clone());
             prop_assert_eq!(state1.as_str(), state2.as_str());
         }
 
