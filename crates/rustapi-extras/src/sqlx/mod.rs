@@ -1,7 +1,7 @@
 //! SQLx database integration for RustAPI
 //!
 //! This module provides error conversion from SQLx errors to RustAPI's `ApiError` type,
-//! enabling seamless database integration with appropriate HTTP status codes.
+//! and a pool builder for easy database connection pool configuration.
 //!
 //! ## Error Mapping
 //!
@@ -12,7 +12,29 @@
 //! | Unique constraint violation | 409 | conflict |
 //! | Other database errors | 500 | internal_error |
 //!
-//! ## Example
+//! ## Pool Builder Example
+//!
+//! ```rust,ignore
+//! use rustapi_extras::sqlx::{SqlxPoolBuilder, PoolError};
+//! use std::time::Duration;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), PoolError> {
+//!     let pool = SqlxPoolBuilder::new("postgres://user:pass@localhost/db")
+//!         .max_connections(10)
+//!         .min_connections(2)
+//!         .connect_timeout(Duration::from_secs(5))
+//!         .idle_timeout(Duration::from_secs(300))
+//!         .max_lifetime(Duration::from_secs(3600))
+//!         .build()
+//!         .await?;
+//!
+//!     // Use pool...
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Error Conversion Example
 //!
 //! ```rust,ignore
 //! use rustapi_extras::sqlx::SqlxErrorExt;
@@ -26,7 +48,289 @@
 //! }
 //! ```
 
+use rustapi_core::health::{HealthCheck, HealthCheckBuilder, HealthStatus};
 use rustapi_core::ApiError;
+use std::sync::Arc;
+use std::time::Duration;
+use thiserror::Error;
+
+/// Error type for pool operations
+#[derive(Debug, Error)]
+pub enum PoolError {
+    /// Configuration error
+    #[error("Pool configuration error: {0}")]
+    Configuration(String),
+
+    /// Connection error
+    #[error("Database connection error: {0}")]
+    Connection(String),
+
+    /// SQLx error
+    #[error("SQLx error: {0}")]
+    Sqlx(#[from] sqlx::Error),
+}
+
+/// Configuration for SQLx connection pool
+///
+/// This struct holds all configuration options for the pool builder.
+/// It can be serialized/deserialized for configuration file support.
+#[derive(Debug, Clone)]
+pub struct SqlxPoolConfig {
+    /// Database connection URL
+    pub url: String,
+    /// Maximum number of connections in the pool
+    pub max_connections: u32,
+    /// Minimum number of connections to maintain
+    pub min_connections: u32,
+    /// Timeout for acquiring a connection
+    pub connect_timeout: Duration,
+    /// Maximum idle time before a connection is closed
+    pub idle_timeout: Duration,
+    /// Maximum lifetime of a connection
+    pub max_lifetime: Duration,
+}
+
+impl Default for SqlxPoolConfig {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            max_connections: 10,
+            min_connections: 1,
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+            max_lifetime: Duration::from_secs(1800),
+        }
+    }
+}
+
+impl SqlxPoolConfig {
+    /// Validate the configuration
+    pub fn validate(&self) -> Result<(), PoolError> {
+        if self.url.is_empty() {
+            return Err(PoolError::Configuration(
+                "Database URL cannot be empty".to_string(),
+            ));
+        }
+        if self.max_connections == 0 {
+            return Err(PoolError::Configuration(
+                "max_connections must be greater than 0".to_string(),
+            ));
+        }
+        if self.min_connections > self.max_connections {
+            return Err(PoolError::Configuration(
+                "min_connections cannot exceed max_connections".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Builder for SQLx connection pools
+///
+/// Provides a fluent API for configuring database connection pools with
+/// sensible defaults and health check integration.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rustapi_extras::sqlx::SqlxPoolBuilder;
+/// use std::time::Duration;
+///
+/// let pool = SqlxPoolBuilder::new("postgres://localhost/mydb")
+///     .max_connections(20)
+///     .min_connections(5)
+///     .connect_timeout(Duration::from_secs(10))
+///     .build()
+///     .await?;
+/// ```
+#[derive(Debug, Clone)]
+pub struct SqlxPoolBuilder {
+    config: SqlxPoolConfig,
+}
+
+impl SqlxPoolBuilder {
+    /// Create a new pool builder with the given database URL
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Database connection URL (e.g., "postgres://user:pass@localhost/db")
+    pub fn new(url: impl Into<String>) -> Self {
+        Self {
+            config: SqlxPoolConfig {
+                url: url.into(),
+                ..Default::default()
+            },
+        }
+    }
+
+    /// Set the maximum number of connections in the pool
+    ///
+    /// Default: 10
+    pub fn max_connections(mut self, n: u32) -> Self {
+        self.config.max_connections = n;
+        self
+    }
+
+    /// Set the minimum number of connections to maintain
+    ///
+    /// Default: 1
+    pub fn min_connections(mut self, n: u32) -> Self {
+        self.config.min_connections = n;
+        self
+    }
+
+    /// Set the timeout for acquiring a connection
+    ///
+    /// Default: 30 seconds
+    pub fn connect_timeout(mut self, d: Duration) -> Self {
+        self.config.connect_timeout = d;
+        self
+    }
+
+    /// Set the maximum idle time before a connection is closed
+    ///
+    /// Default: 600 seconds (10 minutes)
+    pub fn idle_timeout(mut self, d: Duration) -> Self {
+        self.config.idle_timeout = d;
+        self
+    }
+
+    /// Set the maximum lifetime of a connection
+    ///
+    /// Default: 1800 seconds (30 minutes)
+    pub fn max_lifetime(mut self, d: Duration) -> Self {
+        self.config.max_lifetime = d;
+        self
+    }
+
+    /// Get the current configuration
+    pub fn config(&self) -> &SqlxPoolConfig {
+        &self.config
+    }
+
+    /// Build a PostgreSQL connection pool
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The configuration is invalid
+    /// - The connection cannot be established
+    #[cfg(feature = "sqlx-postgres")]
+    pub async fn build_postgres(self) -> Result<sqlx::PgPool, PoolError> {
+        self.config.validate()?;
+
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(self.config.max_connections)
+            .min_connections(self.config.min_connections)
+            .acquire_timeout(self.config.connect_timeout)
+            .idle_timeout(Some(self.config.idle_timeout))
+            .max_lifetime(Some(self.config.max_lifetime))
+            .connect(&self.config.url)
+            .await?;
+
+        Ok(pool)
+    }
+
+    /// Build a MySQL connection pool
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The configuration is invalid
+    /// - The connection cannot be established
+    #[cfg(feature = "sqlx-mysql")]
+    pub async fn build_mysql(self) -> Result<sqlx::MySqlPool, PoolError> {
+        self.config.validate()?;
+
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(self.config.max_connections)
+            .min_connections(self.config.min_connections)
+            .acquire_timeout(self.config.connect_timeout)
+            .idle_timeout(Some(self.config.idle_timeout))
+            .max_lifetime(Some(self.config.max_lifetime))
+            .connect(&self.config.url)
+            .await?;
+
+        Ok(pool)
+    }
+
+    /// Build a SQLite connection pool
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The configuration is invalid
+    /// - The connection cannot be established
+    #[cfg(feature = "sqlx-sqlite")]
+    pub async fn build_sqlite(self) -> Result<sqlx::SqlitePool, PoolError> {
+        self.config.validate()?;
+
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(self.config.max_connections)
+            .min_connections(self.config.min_connections)
+            .acquire_timeout(self.config.connect_timeout)
+            .idle_timeout(Some(self.config.idle_timeout))
+            .max_lifetime(Some(self.config.max_lifetime))
+            .connect(&self.config.url)
+            .await?;
+
+        Ok(pool)
+    }
+
+    /// Create a health check for a PostgreSQL pool
+    ///
+    /// The health check will execute a simple query to verify connectivity.
+    #[cfg(feature = "sqlx-postgres")]
+    pub fn health_check_postgres(pool: Arc<sqlx::PgPool>) -> HealthCheck {
+        HealthCheckBuilder::new(false)
+            .add_check("postgres", move || {
+                let pool = pool.clone();
+                async move {
+                    match sqlx::query("SELECT 1").execute(pool.as_ref()).await {
+                        Ok(_) => HealthStatus::healthy(),
+                        Err(e) => HealthStatus::unhealthy(format!("Database check failed: {}", e)),
+                    }
+                }
+            })
+            .build()
+    }
+
+    /// Create a health check for a MySQL pool
+    ///
+    /// The health check will execute a simple query to verify connectivity.
+    #[cfg(feature = "sqlx-mysql")]
+    pub fn health_check_mysql(pool: Arc<sqlx::MySqlPool>) -> HealthCheck {
+        HealthCheckBuilder::new(false)
+            .add_check("mysql", move || {
+                let pool = pool.clone();
+                async move {
+                    match sqlx::query("SELECT 1").execute(pool.as_ref()).await {
+                        Ok(_) => HealthStatus::healthy(),
+                        Err(e) => HealthStatus::unhealthy(format!("Database check failed: {}", e)),
+                    }
+                }
+            })
+            .build()
+    }
+
+    /// Create a health check for a SQLite pool
+    ///
+    /// The health check will execute a simple query to verify connectivity.
+    #[cfg(feature = "sqlx-sqlite")]
+    pub fn health_check_sqlite(pool: Arc<sqlx::SqlitePool>) -> HealthCheck {
+        HealthCheckBuilder::new(false)
+            .add_check("sqlite", move || {
+                let pool = pool.clone();
+                async move {
+                    match sqlx::query("SELECT 1").execute(pool.as_ref()).await {
+                        Ok(_) => HealthStatus::healthy(),
+                        Err(e) => HealthStatus::unhealthy(format!("Database check failed: {}", e)),
+                    }
+                }
+            })
+            .build()
+    }
+}
 
 /// Extension trait for converting SQLx errors to ApiError
 pub trait SqlxErrorExt {
@@ -151,11 +455,6 @@ pub fn convert_sqlx_error(err: sqlx::Error) -> ApiError {
     }
 }
 
-/// Implement From<sqlx::Error> for ApiError
-///
-/// Note: This implementation is provided in rustapi-core with the `sqlx` feature flag.
-/// The extension trait `SqlxErrorExt` is provided here for convenience when you need
-/// explicit conversion control.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,6 +483,81 @@ mod tests {
         let api_err = convert_sqlx_error(err);
         assert_eq!(api_err.status, StatusCode::NOT_FOUND);
         assert_eq!(api_err.error_type, "not_found");
+    }
+
+    // Unit tests for SqlxPoolBuilder
+    #[test]
+    fn test_builder_default_values() {
+        let builder = SqlxPoolBuilder::new("postgres://localhost/test");
+        let config = builder.config();
+
+        assert_eq!(config.url, "postgres://localhost/test");
+        assert_eq!(config.max_connections, 10);
+        assert_eq!(config.min_connections, 1);
+        assert_eq!(config.connect_timeout, Duration::from_secs(30));
+        assert_eq!(config.idle_timeout, Duration::from_secs(600));
+        assert_eq!(config.max_lifetime, Duration::from_secs(1800));
+    }
+
+    #[test]
+    fn test_builder_custom_values() {
+        let builder = SqlxPoolBuilder::new("postgres://localhost/test")
+            .max_connections(20)
+            .min_connections(5)
+            .connect_timeout(Duration::from_secs(10))
+            .idle_timeout(Duration::from_secs(300))
+            .max_lifetime(Duration::from_secs(900));
+
+        let config = builder.config();
+
+        assert_eq!(config.max_connections, 20);
+        assert_eq!(config.min_connections, 5);
+        assert_eq!(config.connect_timeout, Duration::from_secs(10));
+        assert_eq!(config.idle_timeout, Duration::from_secs(300));
+        assert_eq!(config.max_lifetime, Duration::from_secs(900));
+    }
+
+    #[test]
+    fn test_config_validation_empty_url() {
+        let config = SqlxPoolConfig::default();
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), PoolError::Configuration(_)));
+    }
+
+    #[test]
+    fn test_config_validation_zero_max_connections() {
+        let config = SqlxPoolConfig {
+            url: "postgres://localhost/test".to_string(),
+            max_connections: 0,
+            ..Default::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_config_validation_min_exceeds_max() {
+        let config = SqlxPoolConfig {
+            url: "postgres://localhost/test".to_string(),
+            max_connections: 5,
+            min_connections: 10,
+            ..Default::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_config_validation_valid() {
+        let config = SqlxPoolConfig {
+            url: "postgres://localhost/test".to_string(),
+            max_connections: 10,
+            min_connections: 2,
+            ..Default::default()
+        };
+        let result = config.validate();
+        assert!(result.is_ok());
     }
 
     /// Enum representing the different categories of SQLx errors for property testing
@@ -315,6 +689,76 @@ mod tests {
                 "service_unavailable",
                 "Connection errors should have error_type 'service_unavailable'"
             );
+        }
+    }
+
+    // **Feature: v1-features-roadmap, Property 8: Pool configuration respect**
+    //
+    // *For any* pool configuration with connection limits, the pool SHALL never
+    // exceed the configured maximum connections.
+    //
+    // **Validates: Requirements 3.4**
+    //
+    // Note: This property test validates that the configuration is correctly
+    // stored and validated. Actual pool behavior testing requires integration
+    // tests with a real database.
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_pool_configuration_respects_limits(
+            max_conn in 1u32..100,
+            min_conn_factor in 0.0f64..1.0,
+            connect_timeout_secs in 1u64..120,
+            idle_timeout_secs in 60u64..3600,
+            max_lifetime_secs in 300u64..7200,
+        ) {
+            // Calculate min_connections as a fraction of max to ensure min <= max
+            let min_conn = ((max_conn as f64) * min_conn_factor).floor() as u32;
+
+            let builder = SqlxPoolBuilder::new("postgres://localhost/test")
+                .max_connections(max_conn)
+                .min_connections(min_conn)
+                .connect_timeout(Duration::from_secs(connect_timeout_secs))
+                .idle_timeout(Duration::from_secs(idle_timeout_secs))
+                .max_lifetime(Duration::from_secs(max_lifetime_secs));
+
+            let config = builder.config();
+
+            // Verify all configuration values are correctly stored
+            prop_assert_eq!(config.max_connections, max_conn);
+            prop_assert_eq!(config.min_connections, min_conn);
+            prop_assert_eq!(config.connect_timeout, Duration::from_secs(connect_timeout_secs));
+            prop_assert_eq!(config.idle_timeout, Duration::from_secs(idle_timeout_secs));
+            prop_assert_eq!(config.max_lifetime, Duration::from_secs(max_lifetime_secs));
+
+            // Verify configuration validates successfully
+            prop_assert!(config.validate().is_ok());
+
+            // Verify invariant: min_connections <= max_connections
+            prop_assert!(config.min_connections <= config.max_connections);
+        }
+    }
+
+    // Property test for configuration validation
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_invalid_config_is_rejected(
+            max_conn in 1u32..50,
+            min_conn_excess in 1u32..50,
+        ) {
+            // Create config where min > max (invalid)
+            let config = SqlxPoolConfig {
+                url: "postgres://localhost/test".to_string(),
+                max_connections: max_conn,
+                min_connections: max_conn + min_conn_excess,
+                ..Default::default()
+            };
+
+            // Should fail validation
+            prop_assert!(config.validate().is_err());
         }
     }
 }

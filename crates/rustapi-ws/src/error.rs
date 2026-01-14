@@ -96,3 +96,28 @@ impl From<WebSocketError> for rustapi_core::ApiError {
         }
     }
 }
+
+impl From<crate::auth::AuthError> for rustapi_core::ApiError {
+    fn from(err: crate::auth::AuthError) -> Self {
+        match err {
+            crate::auth::AuthError::TokenMissing => {
+                rustapi_core::ApiError::unauthorized("Authentication token missing")
+            }
+            crate::auth::AuthError::TokenExpired => {
+                rustapi_core::ApiError::unauthorized("Token has expired")
+            }
+            crate::auth::AuthError::InvalidSignature => {
+                rustapi_core::ApiError::unauthorized("Invalid token signature")
+            }
+            crate::auth::AuthError::InvalidFormat(msg) => {
+                rustapi_core::ApiError::bad_request(format!("Invalid token format: {}", msg))
+            }
+            crate::auth::AuthError::ValidationFailed(msg) => {
+                rustapi_core::ApiError::unauthorized(format!("Token validation failed: {}", msg))
+            }
+            crate::auth::AuthError::InsufficientPermissions(msg) => {
+                rustapi_core::ApiError::forbidden(format!("Insufficient permissions: {}", msg))
+            }
+        }
+    }
+}

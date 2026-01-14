@@ -21,7 +21,7 @@ tokio-tungstenite = "0.24"
 tungstenite = "0.24"
 
 # Async runtime
-tokio = { workspace = true, features = ["sync", "macros"] }
+tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 futures-util = { workspace = true }
 
 # HTTP types
@@ -39,6 +39,8 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 pin-project-lite = { workspace = true }
+async-trait = { workspace = true }
+url = "2.5"
 
 # SHA-1 for WebSocket handshake
 sha1 = "0.10"
@@ -46,3 +48,4 @@ base64 = "0.22"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+proptest = "1.4"

@@ -42,6 +42,7 @@
 //! helpful error messages with resolution guidance.
 
 use crate::handler::{into_boxed_handler, BoxedHandler, Handler};
+use crate::path_params::PathParams;
 use http::{Extensions, Method};
 use matchit::Router as MatchitRouter;
 use rustapi_openapi::Operation;
@@ -187,6 +188,60 @@ impl MethodRouter {
 
         self.handlers.insert(method.clone(), handler);
         self.operations.insert(method, operation);
+    }
+    /// Add a GET handler
+    pub fn get<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::GET, into_boxed_handler(handler), op)
+    }
+
+    /// Add a POST handler
+    pub fn post<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::POST, into_boxed_handler(handler), op)
+    }
+
+    /// Add a PUT handler
+    pub fn put<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::PUT, into_boxed_handler(handler), op)
+    }
+
+    /// Add a PATCH handler
+    pub fn patch<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::PATCH, into_boxed_handler(handler), op)
+    }
+
+    /// Add a DELETE handler
+    pub fn delete<H, T>(self, handler: H) -> Self
+    where
+        H: Handler<T>,
+        T: 'static,
+    {
+        let mut op = Operation::new();
+        H::update_operation(&mut op);
+        self.on(Method::DELETE, into_boxed_handler(handler), op)
     }
 }
 
@@ -524,8 +579,8 @@ impl Router {
                 let method_router = matched.value;
 
                 if let Some(handler) = method_router.get_handler(method) {
-                    // Convert params to HashMap
-                    let params: HashMap<String, String> = matched
+                    // Use stack-optimized PathParams (avoids heap allocation for ≤4 params)
+                    let params: PathParams = matched
                         .params
                         .iter()
                         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -568,7 +623,7 @@ impl Default for Router {
 pub(crate) enum RouteMatch<'a> {
     Found {
         handler: &'a BoxedHandler,
-        params: HashMap<String, String>,
+        params: PathParams,
     },
     NotFound,
     MethodNotAllowed {

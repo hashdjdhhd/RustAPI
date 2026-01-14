@@ -2,7 +2,25 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
 use std::fmt;
+
+/// Trait for translating validation errors.
+pub trait Translator {
+    /// Translate a validation error message.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - The validation rule code (e.g., "email", "length")
+    /// * `field` - The field name
+    /// * `params` - Optional parameters for the validation rule
+    fn translate(
+        &self,
+        code: &str,
+        field: &str,
+        params: Option<&HashMap<String, serde_json::Value>>,
+    ) -> Option<String>;
+}
 
 /// A single field validation error.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,6 +179,31 @@ impl ValidationError {
         }
 
         Self::new(field_errors)
+    }
+
+    /// Localize validation errors using a translator.
+    pub fn localize<T: Translator>(&self, translator: &T) -> Self {
+        let fields = self
+            .fields
+            .iter()
+            .map(|f| {
+                let message = translator
+                    .translate(&f.code, &f.field, f.params.as_ref())
+                    .unwrap_or_else(|| f.message.clone());
+
+                FieldError {
+                    field: f.field.clone(),
+                    code: f.code.clone(),
+                    message,
+                    params: f.params.clone(),
+                }
+            })
+            .collect();
+
+        Self {
+            fields,
+            message: self.message.clone(),
+        }
     }
 }
 

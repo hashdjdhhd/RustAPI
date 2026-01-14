@@ -51,23 +51,31 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 
 mod broadcast;
+mod compression;
 mod error;
 mod extractor;
+mod heartbeat;
 mod message;
 mod socket;
 mod upgrade;
 
+/// Authentication support for WebSocket connections
+pub mod auth;
+
 pub use broadcast::Broadcast;
+pub use compression::WsCompressionConfig;
 pub use error::WebSocketError;
 pub use extractor::WebSocket;
+pub use heartbeat::WsHeartbeatConfig;
 pub use message::{CloseCode, CloseFrame, Message};
 pub use socket::{WebSocketReceiver, WebSocketSender, WebSocketStream};
 pub use upgrade::WebSocketUpgrade;
 
 /// Prelude module for convenient imports
 pub mod prelude {
+    pub use crate::auth::{AuthError, Claims, TokenExtractor, TokenValidator, WsAuthConfig};
     pub use crate::{
         Broadcast, CloseCode, CloseFrame, Message, WebSocket, WebSocketError, WebSocketReceiver,
-        WebSocketSender, WebSocketStream, WebSocketUpgrade,
+        WebSocketSender, WebSocketStream, WebSocketUpgrade, WsCompressionConfig,
     };
 }
