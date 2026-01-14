@@ -1,6 +1,6 @@
 //! CLI argument parsing
 
-use crate::commands::{self, GenerateArgs, NewArgs, RunArgs};
+use crate::commands::{self, AddArgs, DoctorArgs, GenerateArgs, NewArgs, RunArgs, WatchArgs};
 use clap::{Parser, Subcommand};
 
 /// RustAPI CLI - Project scaffolding and development utilities
@@ -21,6 +21,15 @@ enum Commands {
     /// Run the development server
     Run(RunArgs),
 
+    /// Watch for changes and auto-reload (dedicated)
+    Watch(WatchArgs),
+
+    /// Add a feature or dependency
+    Add(AddArgs),
+
+    /// Check environment health
+    Doctor(DoctorArgs),
+
     /// Generate code from templates
     #[command(subcommand)]
     Generate(GenerateArgs),
@@ -39,6 +48,9 @@ impl Cli {
         match self.command {
             Commands::New(args) => commands::new_project(args).await,
             Commands::Run(args) => commands::run_dev(args).await,
+            Commands::Watch(args) => commands::watch(args).await,
+            Commands::Add(args) => commands::add(args).await,
+            Commands::Doctor(args) => commands::doctor(args).await,
             Commands::Generate(args) => commands::generate(args).await,
             Commands::Docs { port } => commands::open_docs(port).await,
         }

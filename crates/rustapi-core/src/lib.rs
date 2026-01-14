@@ -56,8 +56,12 @@ pub use auto_schema::apply_auto_schemas;
 mod error;
 mod extract;
 mod handler;
+pub mod health;
+pub mod interceptor;
+pub mod json;
 pub mod middleware;
 pub mod multipart;
+pub mod path_params;
 pub mod path_validation;
 mod request;
 mod response;
@@ -66,6 +70,8 @@ mod server;
 pub mod sse;
 pub mod static_files;
 pub mod stream;
+#[macro_use]
+mod tracing_macros;
 #[cfg(any(test, feature = "test-utils"))]
 mod test_client;
 
@@ -83,17 +89,19 @@ pub mod __private {
 
 // Public API
 pub use app::{RustApi, RustApiConfig};
-pub use error::{get_environment, ApiError, Environment, Result};
+pub use error::{get_environment, ApiError, Environment, FieldError, Result};
 #[cfg(feature = "cookies")]
 pub use extract::Cookies;
 pub use extract::{
-    Body, ClientIp, Extension, FromRequest, FromRequestParts, HeaderValue, Headers, Json, Path,
-    Query, State, ValidatedJson,
+    Body, BodyStream, ClientIp, Extension, FromRequest, FromRequestParts, HeaderValue, Headers,
+    Json, Path, Query, State, ValidatedJson,
 };
 pub use handler::{
     delete_route, get_route, patch_route, post_route, put_route, Handler, HandlerService, Route,
     RouteHandler,
 };
+pub use health::{HealthCheck, HealthCheckBuilder, HealthCheckResult, HealthStatus};
+pub use interceptor::{InterceptorChain, RequestInterceptor, ResponseInterceptor};
 #[cfg(feature = "compression")]
 pub use middleware::CompressionLayer;
 pub use middleware::{BodyLimitLayer, RequestId, RequestIdLayer, TracingLayer, DEFAULT_BODY_LIMIT};
@@ -105,6 +113,6 @@ pub use response::{Created, Html, IntoResponse, NoContent, Redirect, Response, W
 pub use router::{delete, get, patch, post, put, MethodRouter, Router};
 pub use sse::{sse_response, KeepAlive, Sse, SseEvent};
 pub use static_files::{serve_dir, StaticFile, StaticFileConfig};
-pub use stream::StreamBody;
+pub use stream::{StreamBody, StreamingBody, StreamingConfig};
 #[cfg(any(test, feature = "test-utils"))]
 pub use test_client::{TestClient, TestRequest, TestResponse};

@@ -55,8 +55,10 @@
 //! in any order.
 
 use crate::error::{ApiError, Result};
+use crate::json;
 use crate::request::Request;
 use crate::response::IntoResponse;
+use crate::stream::{StreamingBody, StreamingConfig};
 use bytes::Bytes;
 use http::{header, StatusCode};
 use http_body_util::Full;
@@ -112,11 +114,13 @@ pub struct Json<T>(pub T);
 
 impl<T: DeserializeOwned + Send> FromRequest for Json<T> {
     async fn from_request(req: &mut Request) -> Result<Self> {
+        req.load_body().await?;
         let body = req
             .take_body()
             .ok_or_else(|| ApiError::internal("Body already consumed"))?;
 
-        let value: T = serde_json::from_slice(&body)?;
+        // Use simd-json accelerated parsing when available (2-4x faster)
+        let value: T = json::from_slice(&body)?;
         Ok(Json(value))
     }
 }
@@ -141,10 +145,15 @@ impl<T> From<T> for Json<T> {
     }
 }
 
+/// Default pre-allocation size for JSON response buffers (256 bytes)
+/// This covers most small to medium JSON responses without reallocation.
+const JSON_RESPONSE_INITIAL_CAPACITY: usize = 256;
+
 // IntoResponse for Json - allows using Json<T> as a return type
 impl<T: Serialize> IntoResponse for Json<T> {
     fn into_response(self) -> crate::response::Response {
-        match serde_json::to_vec(&self.0) {
+        // Use pre-allocated buffer to reduce allocations
+        match json::to_vec_with_capacity(&self.0, JSON_RESPONSE_INITIAL_CAPACITY) {
             Ok(body) => http::Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, "application/json")
@@ -199,11 +208,13 @@ impl<T> ValidatedJson<T> {
 
 impl<T: DeserializeOwned + rustapi_validate::Validate + Send> FromRequest for ValidatedJson<T> {
     async fn from_request(req: &mut Request) -> Result<Self> {
+        req.load_body().await?;
+        // First, deserialize the JSON body using simd-json when available
         let body = req
             .take_body()
             .ok_or_else(|| ApiError::internal("Body already consumed"))?;
 
-        let value: T = serde_json::from_slice(&body)?;
+        let value: T = json::from_slice(&body)?;
 
         // Then, validate it
         if let Err(validation_error) = rustapi_validate::Validate::validate(&value) {
@@ -373,6 +384,7 @@ pub struct Body(pub Bytes);
 
 impl FromRequest for Body {
     async fn from_request(req: &mut Request) -> Result<Self> {
+        req.load_body().await?;
         let body = req
             .take_body()
             .ok_or_else(|| ApiError::internal("Body already consumed"))?;
@@ -385,6 +397,54 @@ impl Deref for Body {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+/// Streaming body extractor
+pub struct BodyStream(pub StreamingBody);
+
+impl FromRequest for BodyStream {
+    async fn from_request(req: &mut Request) -> Result<Self> {
+        let config = StreamingConfig::default();
+
+        if let Some(stream) = req.take_stream() {
+            Ok(BodyStream(StreamingBody::new(stream, config.max_body_size)))
+        } else if let Some(bytes) = req.take_body() {
+            // Handle buffered body as stream
+            let stream = futures_util::stream::once(async move { Ok(bytes) });
+            Ok(BodyStream(StreamingBody::from_stream(
+                stream,
+                config.max_body_size,
+            )))
+        } else {
+            Err(ApiError::internal("Body already consumed"))
+        }
+    }
+}
+
+impl Deref for BodyStream {
+    type Target = StreamingBody;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for BodyStream {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+// Forward stream implementation
+impl futures_util::Stream for BodyStream {
+    type Item = Result<Bytes, ApiError>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        std::pin::Pin::new(&mut self.0).poll_next(cx)
     }
 }
 
@@ -860,6 +920,26 @@ impl OperationModifier for Body {
     }
 }
 
+// BodyStream - Generic binary stream (Same as Body)
+impl OperationModifier for BodyStream {
+    fn update_operation(op: &mut Operation) {
+        let mut content = HashMap::new();
+        content.insert(
+            "application/octet-stream".to_string(),
+            MediaType {
+                schema: SchemaRef::Inline(
+                    serde_json::json!({ "type": "string", "format": "binary" }),
+                ),
+            },
+        );
+
+        op.request_body = Some(RequestBody {
+            required: true,
+            content,
+        });
+    }
+}
+
 // ResponseModifier implementations for extractors
 
 // Json<T> - 200 OK with schema T
@@ -891,11 +971,11 @@ impl<T: for<'a> Schema<'a>> ResponseModifier for Json<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::path_params::PathParams;
     use bytes::Bytes;
     use http::{Extensions, Method};
     use proptest::prelude::*;
     use proptest::test_runner::TestCaseError;
-    use std::collections::HashMap;
     use std::sync::Arc;
 
     /// Create a test request with the given method, path, and headers
@@ -916,9 +996,9 @@ mod tests {
 
         Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
-            HashMap::new(),
+            PathParams::new(),
         )
     }
 
@@ -937,9 +1017,9 @@ mod tests {
 
         Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
-            HashMap::new(),
+            PathParams::new(),
         )
     }
 
@@ -1113,9 +1193,9 @@ mod tests {
 
                 let request = Request::new(
                     parts,
-                    Bytes::new(),
+                    crate::request::BodyVariant::Buffered(Bytes::new()),
                     Arc::new(Extensions::new()),
-                    HashMap::new(),
+                    PathParams::new(),
                 );
 
                 let extracted = ClientIp::extract_with_config(&request, trust_proxy)
@@ -1175,9 +1255,9 @@ mod tests {
 
                 let request = Request::new(
                     parts,
-                    Bytes::new(),
+                    crate::request::BodyVariant::Buffered(Bytes::new()),
                     Arc::new(Extensions::new()),
-                    HashMap::new(),
+                    PathParams::new(),
                 );
 
                 let result = Extension::<TestExtension>::from_request_parts(&request);
@@ -1275,9 +1355,9 @@ mod tests {
 
         let request = Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
-            HashMap::new(),
+            PathParams::new(),
         );
 
         let ip = ClientIp::extract_with_config(&request, false).unwrap();

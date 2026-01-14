@@ -22,5 +22,15 @@ thiserror = { workspace = true }
 # HTTP types for response
 http = { workspace = true }
 
+# Async support for v2 validation
+async-trait = { workspace = true }
+
+# Regex for pattern validation
+regex = "1.10"
+
+# Re-export derive macro
+rustapi-macros = { workspace = true }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+proptest = "1.4"

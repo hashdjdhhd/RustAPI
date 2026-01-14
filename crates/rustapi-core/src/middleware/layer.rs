@@ -192,13 +192,13 @@ impl Service<Request> for NextService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::path_params::PathParams;
     use crate::request::Request;
     use crate::response::Response;
     use bytes::Bytes;
     use http::{Extensions, Method, StatusCode};
     use proptest::prelude::*;
     use proptest::test_runner::TestCaseError;
-    use std::collections::HashMap;
 
     /// Create a test request with the given method and path
     fn create_test_request(method: Method, path: &str) -> Request {
@@ -210,9 +210,9 @@ mod tests {
 
         Request::new(
             parts,
-            Bytes::new(),
+            crate::request::BodyVariant::Buffered(Bytes::new()),
             Arc::new(Extensions::new()),
-            HashMap::new(),
+            PathParams::new(),
         )
     }
 

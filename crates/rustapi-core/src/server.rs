@@ -1,13 +1,14 @@
 //! HTTP server implementation
 
 use crate::error::ApiError;
+use crate::interceptor::InterceptorChain;
 use crate::middleware::{BoxedNext, LayerStack};
 use crate::request::Request;
 use crate::response::IntoResponse;
 use crate::router::{RouteMatch, Router};
 use bytes::Bytes;
 use http::{header, StatusCode};
-use http_body_util::{BodyExt, Full};
+use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -22,13 +23,15 @@ use tracing::{error, info};
 pub(crate) struct Server {
     router: Arc<Router>,
     layers: Arc<LayerStack>,
+    interceptors: Arc<InterceptorChain>,
 }
 
 impl Server {
-    pub fn new(router: Router, layers: LayerStack) -> Self {
+    pub fn new(router: Router, layers: LayerStack, interceptors: InterceptorChain) -> Self {
         Self {
             router: Arc::new(router),
             layers: Arc::new(layers),
+            interceptors: Arc::new(interceptors),
         }
     }
 
@@ -44,13 +47,16 @@ impl Server {
             let io = TokioIo::new(stream);
             let router = self.router.clone();
             let layers = self.layers.clone();
+            let interceptors = self.interceptors.clone();
 
             tokio::spawn(async move {
                 let service = service_fn(move |req: hyper::Request<Incoming>| {
                     let router = router.clone();
                     let layers = layers.clone();
+                    let interceptors = interceptors.clone();
                     async move {
-                        let response = handle_request(router, layers, req, remote_addr).await;
+                        let response =
+                            handle_request(router, layers, interceptors, req, remote_addr).await;
                         Ok::<_, Infallible>(response)
                     }
                 });
@@ -67,6 +73,7 @@ impl Server {
 async fn handle_request(
     router: Arc<Router>,
     layers: Arc<LayerStack>,
+    interceptors: Arc<InterceptorChain>,
     req: hyper::Request<Incoming>,
     _remote_addr: SocketAddr,
 ) -> hyper::Response<Full<Bytes>> {
@@ -76,14 +83,6 @@ async fn handle_request(
 
     // Convert hyper request to our Request type first
     let (parts, body) = req.into_parts();
-
-    // Collect body bytes
-    let body_bytes = match body.collect().await {
-        Ok(collected) => collected.to_bytes(),
-        Err(e) => {
-            return ApiError::bad_request(format!("Failed to read body: {}", e)).into_response();
-        }
-    };
 
     // Match the route to get path params
     let (handler, params) = match router.match_route(&path, &method) {
@@ -111,8 +110,16 @@ async fn handle_request(
         }
     };
 
-    // Build Request
-    let request = Request::new(parts, body_bytes, router.state_ref(), params);
+    // Build Request (initially streaming)
+    let request = Request::new(
+        parts,
+        crate::request::BodyVariant::Streaming(body),
+        router.state_ref(),
+        params,
+    );
+
+    // Apply request interceptors (in registration order)
+    let request = interceptors.intercept_request(request);
 
     // Create the final handler as a BoxedNext
     let final_handler: BoxedNext = Arc::new(move |req: Request| {
@@ -125,6 +132,9 @@ async fn handle_request(
 
     // Execute through middleware stack
     let response = layers.execute(request, final_handler).await;
+
+    // Apply response interceptors (in reverse registration order)
+    let response = interceptors.intercept_response(response);
 
     log_request(&method, &path, response.status(), start);
     response

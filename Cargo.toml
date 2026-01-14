@@ -10,6 +10,8 @@ members = [
     "crates/rustapi-toon",
     "crates/rustapi-ws",
     "crates/rustapi-view",
+    "crates/rustapi-testing",
+    "crates/rustapi-jobs",
     "crates/cargo-rustapi",
     "examples/hello-world",
     "examples/sqlx-crud",
@@ -23,9 +25,13 @@ members = [
     "examples/rate-limit-demo",
     # "examples/graphql-api",  # TODO: Needs API updates
     "examples/microservices",
+    "examples/microservices-advanced",
+    "examples/event-sourcing",
+    "examples/serverless-lambda",
     "examples/middleware-chain",
-    "examples/cors-test",
+    # "examples/cors-test",  # TODO: Needs implementation
     "benches/toon_bench",
+    "benches/rustapi_bench",
 ]
 
 [workspace.package]
@@ -67,6 +73,7 @@ futures-util = "0.3"
 bytes = "1.5"
 matchit = "0.7"  # Radix tree router
 pin-project-lite = "0.2"
+async-trait = "0.1"
 
 # Proc macros
 syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
@@ -115,4 +122,6 @@ rustapi-extras = { path = "crates/rustapi-extras", version = "0.1.7" }
 rustapi-toon = { path = "crates/rustapi-toon", version = "0.1.7" }
 rustapi-ws = { path = "crates/rustapi-ws", version = "0.1.7" }
 rustapi-view = { path = "crates/rustapi-view", version = "0.1.7" }
+rustapi-testing = { path = "crates/rustapi-testing", version = "0.1.7" }
+rustapi-jobs = { path = "crates/rustapi-jobs", version = "0.1.7" }
 

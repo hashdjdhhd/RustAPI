@@ -1,6 +1,7 @@
 //! RustApi application builder
 
 use crate::error::Result;
+use crate::interceptor::{InterceptorChain, RequestInterceptor, ResponseInterceptor};
 use crate::middleware::{BodyLimitLayer, LayerStack, MiddlewareLayer, DEFAULT_BODY_LIMIT};
 use crate::response::IntoResponse;
 use crate::router::{MethodRouter, Router};
@@ -30,6 +31,7 @@ pub struct RustApi {
     openapi_spec: rustapi_openapi::OpenApiSpec,
     layers: LayerStack,
     body_limit: Option<usize>,
+    interceptors: InterceptorChain,
 }
 
 impl RustApi {
@@ -54,6 +56,7 @@ impl RustApi {
                 .register::<rustapi_openapi::FieldErrorSchema>(),
             layers: LayerStack::new(),
             body_limit: Some(DEFAULT_BODY_LIMIT), // Default 1MB limit
+            interceptors: InterceptorChain::new(),
         }
     }
 
@@ -185,6 +188,84 @@ impl RustApi {
         self
     }
 
+    /// Add a request interceptor to the application
+    ///
+    /// Request interceptors are executed in registration order before the route handler.
+    /// Each interceptor can modify the request before passing it to the next interceptor
+    /// or handler.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use rustapi_core::{RustApi, interceptor::RequestInterceptor, Request};
+    ///
+    /// #[derive(Clone)]
+    /// struct AddRequestId;
+    ///
+    /// impl RequestInterceptor for AddRequestId {
+    ///     fn intercept(&self, mut req: Request) -> Request {
+    ///         req.extensions_mut().insert(uuid::Uuid::new_v4());
+    ///         req
+    ///     }
+    ///
+    ///     fn clone_box(&self) -> Box<dyn RequestInterceptor> {
+    ///         Box::new(self.clone())
+    ///     }
+    /// }
+    ///
+    /// RustApi::new()
+    ///     .request_interceptor(AddRequestId)
+    ///     .route("/", get(handler))
+    ///     .run("127.0.0.1:8080")
+    ///     .await
+    /// ```
+    pub fn request_interceptor<I>(mut self, interceptor: I) -> Self
+    where
+        I: RequestInterceptor,
+    {
+        self.interceptors.add_request_interceptor(interceptor);
+        self
+    }
+
+    /// Add a response interceptor to the application
+    ///
+    /// Response interceptors are executed in reverse registration order after the route
+    /// handler completes. Each interceptor can modify the response before passing it
+    /// to the previous interceptor or client.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use rustapi_core::{RustApi, interceptor::ResponseInterceptor, Response};
+    ///
+    /// #[derive(Clone)]
+    /// struct AddServerHeader;
+    ///
+    /// impl ResponseInterceptor for AddServerHeader {
+    ///     fn intercept(&self, mut res: Response) -> Response {
+    ///         res.headers_mut().insert("X-Server", "RustAPI".parse().unwrap());
+    ///         res
+    ///     }
+    ///
+    ///     fn clone_box(&self) -> Box<dyn ResponseInterceptor> {
+    ///         Box::new(self.clone())
+    ///     }
+    /// }
+    ///
+    /// RustApi::new()
+    ///     .response_interceptor(AddServerHeader)
+    ///     .route("/", get(handler))
+    ///     .run("127.0.0.1:8080")
+    ///     .await
+    /// ```
+    pub fn response_interceptor<I>(mut self, interceptor: I) -> Self
+    where
+        I: ResponseInterceptor,
+    {
+        self.interceptors.add_response_interceptor(interceptor);
+        self
+    }
+
     /// Add application state
     ///
     /// State is shared across all handlers and can be extracted using `State<T>`.
@@ -266,14 +347,16 @@ impl RustApi {
             entry.insert_boxed_with_operation(method_enum, route.handler, route.operation);
         }
 
+        #[cfg(feature = "tracing")]
         let route_count: usize = by_path.values().map(|mr| mr.allowed_methods().len()).sum();
+        #[cfg(feature = "tracing")]
         let path_count = by_path.len();
 
         for (path, method_router) in by_path {
             self = self.route(&path, method_router);
         }
 
-        tracing::info!(
+        crate::trace_info!(
             paths = path_count,
             routes = route_count,
             "Auto-registered routes"
@@ -562,15 +645,23 @@ impl RustApi {
     /// - `{path}` - Swagger UI interface
     /// - `{path}/openapi.json` - OpenAPI JSON specification
     ///
+    /// **Important:** Call `.docs()` AFTER registering all routes. The OpenAPI
+    /// specification is captured at the time `.docs()` is called, so routes
+    /// added afterwards will not appear in the documentation.
+    ///
     /// # Example
     ///
     /// ```text
     /// RustApi::new()
-    ///     .route("/users", get(list_users))
-    ///     .docs("/docs")  // Swagger UI at /docs, spec at /docs/openapi.json
+    ///     .route("/users", get(list_users))     // Add routes first
+    ///     .route("/posts", get(list_posts))     // Add more routes
+    ///     .docs("/docs")  // Then enable docs - captures all routes above
     ///     .run("127.0.0.1:8080")
     ///     .await
     /// ```
+    ///
+    /// For `RustApi::auto()`, routes are collected before `.docs()` is called,
+    /// so this is handled automatically.
     #[cfg(feature = "swagger-ui")]
     pub fn docs(self, path: &str) -> Self {
         let title = self.openapi_spec.info.title.clone();
@@ -778,7 +869,7 @@ impl RustApi {
             self.layers.prepend(Box::new(BodyLimitLayer::new(limit)));
         }
 
-        let server = Server::new(self.router, self.layers);
+        let server = Server::new(self.router, self.layers, self.interceptors);
         server.run(addr).await
     }
 
@@ -790,6 +881,11 @@ impl RustApi {
     /// Get the layer stack (for testing)
     pub fn layers(&self) -> &LayerStack {
         &self.layers
+    }
+
+    /// Get the interceptor chain (for testing)
+    pub fn interceptors(&self) -> &InterceptorChain {
+        &self.interceptors
     }
 }
 
@@ -834,13 +930,63 @@ fn add_path_params_to_operation(path: &str, op: &mut rustapi_openapi::Operation)
             continue;
         }
 
+        // Infer schema type based on common naming patterns
+        let schema = infer_path_param_schema(&name);
+
         op_params.push(rustapi_openapi::Parameter {
             name,
             location: "path".to_string(),
             required: true,
             description: None,
-            schema: rustapi_openapi::SchemaRef::Inline(serde_json::json!({ "type": "string" })),
+            schema,
         });
+    }
+}
+
+/// Infer the OpenAPI schema type for a path parameter based on naming conventions.
+///
+/// Common patterns:
+/// - `*_id`, `*Id`, `id` → integer (but NOT *uuid)
+/// - `*_count`, `*_num`, `page`, `limit`, `offset` → integer  
+/// - `*_uuid`, `uuid` → string with uuid format
+/// - `year`, `month`, `day` → integer
+/// - Everything else → string
+fn infer_path_param_schema(name: &str) -> rustapi_openapi::SchemaRef {
+    let lower = name.to_lowercase();
+
+    // UUID patterns (check first to avoid false positive from "id" suffix)
+    let is_uuid = lower == "uuid" || lower.ends_with("_uuid") || lower.ends_with("uuid");
+
+    if is_uuid {
+        return rustapi_openapi::SchemaRef::Inline(serde_json::json!({
+            "type": "string",
+            "format": "uuid"
+        }));
+    }
+
+    // Integer patterns
+    let is_integer = lower == "id"
+        || lower.ends_with("_id")
+        || (lower.ends_with("id") && lower.len() > 2) // e.g., "userId", but not "uuid"
+        || lower == "page"
+        || lower == "limit"
+        || lower == "offset"
+        || lower == "count"
+        || lower.ends_with("_count")
+        || lower.ends_with("_num")
+        || lower == "year"
+        || lower == "month"
+        || lower == "day"
+        || lower == "index"
+        || lower == "position";
+
+    if is_integer {
+        rustapi_openapi::SchemaRef::Inline(serde_json::json!({
+            "type": "integer",
+            "format": "int64"
+        }))
+    } else {
+        rustapi_openapi::SchemaRef::Inline(serde_json::json!({ "type": "string" }))
     }
 }
 
@@ -884,12 +1030,12 @@ impl Default for RustApi {
 mod tests {
     use super::RustApi;
     use crate::extract::{FromRequestParts, State};
+    use crate::path_params::PathParams;
     use crate::request::Request;
     use crate::router::{get, post, Router};
     use bytes::Bytes;
     use http::Method;
     use proptest::prelude::*;
-    use std::collections::HashMap;
 
     #[test]
     fn state_is_available_via_extractor() {
@@ -903,9 +1049,110 @@ mod tests {
             .unwrap();
         let (parts, _) = req.into_parts();
 
-        let request = Request::new(parts, Bytes::new(), router.state_ref(), HashMap::new());
+        let request = Request::new(
+            parts,
+            crate::request::BodyVariant::Buffered(Bytes::new()),
+            router.state_ref(),
+            PathParams::new(),
+        );
         let State(value) = State::<u32>::from_request_parts(&request).unwrap();
         assert_eq!(value, 123u32);
+    }
+
+    #[test]
+    fn test_path_param_type_inference_integer() {
+        use super::infer_path_param_schema;
+
+        // Test common integer patterns
+        let int_params = [
+            "id",
+            "user_id",
+            "userId",
+            "postId",
+            "page",
+            "limit",
+            "offset",
+            "count",
+            "item_count",
+            "year",
+            "month",
+            "day",
+            "index",
+            "position",
+        ];
+
+        for name in int_params {
+            let schema = infer_path_param_schema(name);
+            match schema {
+                rustapi_openapi::SchemaRef::Inline(v) => {
+                    assert_eq!(
+                        v.get("type").and_then(|v| v.as_str()),
+                        Some("integer"),
+                        "Expected '{}' to be inferred as integer",
+                        name
+                    );
+                }
+                _ => panic!("Expected inline schema for '{}'", name),
+            }
+        }
+    }
+
+    #[test]
+    fn test_path_param_type_inference_uuid() {
+        use super::infer_path_param_schema;
+
+        // Test UUID patterns
+        let uuid_params = ["uuid", "user_uuid", "sessionUuid"];
+
+        for name in uuid_params {
+            let schema = infer_path_param_schema(name);
+            match schema {
+                rustapi_openapi::SchemaRef::Inline(v) => {
+                    assert_eq!(
+                        v.get("type").and_then(|v| v.as_str()),
+                        Some("string"),
+                        "Expected '{}' to be inferred as string",
+                        name
+                    );
+                    assert_eq!(
+                        v.get("format").and_then(|v| v.as_str()),
+                        Some("uuid"),
+                        "Expected '{}' to have uuid format",
+                        name
+                    );
+                }
+                _ => panic!("Expected inline schema for '{}'", name),
+            }
+        }
+    }
+
+    #[test]
+    fn test_path_param_type_inference_string() {
+        use super::infer_path_param_schema;
+
+        // Test string (default) patterns
+        let string_params = ["name", "slug", "code", "token", "username"];
+
+        for name in string_params {
+            let schema = infer_path_param_schema(name);
+            match schema {
+                rustapi_openapi::SchemaRef::Inline(v) => {
+                    assert_eq!(
+                        v.get("type").and_then(|v| v.as_str()),
+                        Some("string"),
+                        "Expected '{}' to be inferred as string",
+                        name
+                    );
+                    assert!(
+                        v.get("format").is_none()
+                            || v.get("format").and_then(|v| v.as_str()) != Some("uuid"),
+                        "Expected '{}' to NOT have uuid format",
+                        name
+                    );
+                }
+                _ => panic!("Expected inline schema for '{}'", name),
+            }
+        }
     }
 
     // **Feature: router-nesting, Property 11: OpenAPI Integration**

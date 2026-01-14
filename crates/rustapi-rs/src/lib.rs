@@ -89,9 +89,44 @@ pub use rustapi_extras::{
 };
 
 #[cfg(feature = "sqlx")]
-pub use rustapi_extras::sqlx;
-#[cfg(feature = "sqlx")]
 pub use rustapi_extras::{convert_sqlx_error, SqlxErrorExt};
+
+// Re-export Phase 11 & Observability Features
+#[cfg(feature = "timeout")]
+pub use rustapi_extras::timeout;
+
+#[cfg(feature = "guard")]
+pub use rustapi_extras::guard;
+
+#[cfg(feature = "logging")]
+pub use rustapi_extras::logging;
+
+#[cfg(feature = "circuit-breaker")]
+pub use rustapi_extras::circuit_breaker;
+
+#[cfg(feature = "retry")]
+pub use rustapi_extras::retry;
+
+#[cfg(feature = "security-headers")]
+pub use rustapi_extras::security_headers;
+
+#[cfg(feature = "api-key")]
+pub use rustapi_extras::api_key;
+
+#[cfg(feature = "cache")]
+pub use rustapi_extras::cache;
+
+#[cfg(feature = "dedup")]
+pub use rustapi_extras::dedup;
+
+#[cfg(feature = "sanitization")]
+pub use rustapi_extras::sanitization;
+
+#[cfg(feature = "otel")]
+pub use rustapi_extras::otel;
+
+#[cfg(feature = "structured-logging")]
+pub use rustapi_extras::structured_logging;
 
 // Re-export TOON (feature-gated)
 #[cfg(feature = "toon")]

@@ -97,8 +97,8 @@ impl MiddlewareLayer for BodyLimitLayer {
 
             // Also check actual body size (for cases without Content-Length or streaming)
             // The body has already been read at this point in the pipeline
-            if let Some(body) = &req.body {
-                if body.len() > limit {
+            if let crate::request::BodyVariant::Buffered(bytes) = &req.body {
+                if bytes.len() > limit {
                     return ApiError::new(
                         StatusCode::PAYLOAD_TOO_LARGE,
                         "payload_too_large",
@@ -121,11 +121,11 @@ impl MiddlewareLayer for BodyLimitLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::path_params::PathParams;
     use crate::request::Request;
     use bytes::Bytes;
     use http::{Extensions, Method};
     use proptest::prelude::*;
-    use std::collections::HashMap;
     use std::sync::Arc;
 
     /// Create a test request with the given body
@@ -139,7 +139,12 @@ mod tests {
         let req = builder.body(()).unwrap();
         let (parts, _) = req.into_parts();
 
-        Request::new(parts, body, Arc::new(Extensions::new()), HashMap::new())
+        Request::new(
+            parts,
+            crate::request::BodyVariant::Buffered(body),
+            Arc::new(Extensions::new()),
+            PathParams::new(),
+        )
     }
 
     /// Create a test request without Content-Length header
@@ -150,7 +155,12 @@ mod tests {
         let req = builder.body(()).unwrap();
         let (parts, _) = req.into_parts();
 
-        Request::new(parts, body, Arc::new(Extensions::new()), HashMap::new())
+        Request::new(
+            parts,
+            crate::request::BodyVariant::Buffered(body),
+            Arc::new(Extensions::new()),
+            PathParams::new(),
+        )
     }
 
     /// Create a simple handler that returns 200 OK
