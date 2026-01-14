@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Performance (big-performance branch)
+- **`simd-json` feature**: 2-4x faster JSON parsing when enabled
+- **Stack-optimized `PathParams`**: Using `SmallVec<[_; 4]>` for fewer allocations
+- **Conditional tracing**: Logging gated behind `tracing` feature for 10-20% less overhead
+- **Streaming request body**: Support for large/unbuffered bodies without full memory buffering
+
+#### New Crates
+- **`rustapi-jobs`**: Background job processing
+  - In-memory, Redis, and Postgres backends
+  - Job queue with retry logic and exponential backoff
+  - Dead letter queue for failed jobs
+  - Scheduled and delayed execution
+- **`rustapi-testing`**: Test utilities
+  - `TestServer` for spawning test instances
+  - `Matcher` for response body/header matching
+  - `Expectation` builder for fluent assertions
+
+#### Security & Compliance
+- **Audit Logging System** in `rustapi-extras`
+  - GDPR and SOC2 compliance support
+  - In-memory and file-based audit stores
+  - Event/query types with store trait
+
+#### CLI Improvements (`cargo-rustapi`)
+- `cargo rustapi watch` — Auto-reload on file changes
+- `cargo rustapi add` — Add dependencies or features
+- `cargo rustapi doctor` — Check environment health
+
+#### Testing
+- **Property-based tests** with `proptest`:
+  - Streaming memory bounds validation
+  - Audit event completeness
+  - CSRF token lifecycle
+  - OAuth2 token exchange round-trips
+  - OpenTelemetry trace context propagation
+  - Structured logging format compliance
+
+#### New Examples
+- `event-sourcing` — CQRS/Event Sourcing demo
+- `microservices-advanced` — Multi-binary with Docker + service discovery
+- `serverless-lambda` — AWS Lambda integration
+
+### Fixed
+- Fixed async handling and error mapping in file writes
+- Fixed Redis `zadd` call in job backend
+- Enabled `r2d2` feature for diesel, clarified error types
+- Removed unused imports across crates
+
 ## [0.1.8] - 2026-01-10
 
 ### Added

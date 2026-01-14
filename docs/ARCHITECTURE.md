@@ -217,6 +217,37 @@ Headers provided by `LlmResponse`:
 | Rate Limit | `rate-limit` | IP-based throttling |
 | Body Limit | default | Max request body size |
 | Request ID | default | Unique request tracking |
+| **Audit Logging** | `audit` | GDPR/SOC2 compliance logging |
+| **Circuit Breaker** | default | Fault tolerance patterns |
+| **Retry** | default | Automatic retry with backoff |
+
+### `rustapi-jobs` — Background Job Processing ⭐ NEW
+
+**Async job queue with multiple backends.**
+
+| Component | Purpose |
+|-----------|---------|
+| `Job` | Job definition with payload |
+| `JobQueue` | Queue management and dispatch |
+| `MemoryBackend` | In-memory store (dev/testing) |
+| `RedisBackend` | Redis-backed persistence |
+| `PostgresBackend` | Postgres-backed persistence |
+
+Features:
+- Retry logic with exponential backoff
+- Dead letter queue for failed jobs
+- Scheduled and delayed execution
+- Job status tracking
+
+### `rustapi-testing` — Test Utilities ⭐ NEW
+
+**Helpers for integration and unit testing.**
+
+| Type | Purpose |
+|------|---------|
+| `TestServer` | Spawn test server instance |
+| `Matcher` | Response body/header matching |
+| `Expectation` | Fluent assertion builder |
 
 ### `rustapi-ws` — WebSocket Support
 
@@ -498,9 +529,38 @@ async fn test_with_mock_db() {
 | Area | Technique | Expected Gain |
 |------|-----------|---------------|
 | JSON Parsing | `simd-json` feature flag | 2-4x faster |
-| Path Params | `SmallVec<[_; 4]>` | Fewer allocations |
+| Path Params | `SmallVec<[_; 4]>` | Stack-optimized, fewer allocations |
 | Tracing | Conditional compilation | 10-20% less overhead |
 | String Handling | Path borrowing | Fewer copies |
+| Streaming Body | Unbuffered request body | Memory efficient for large uploads |
+
+---
+
+## Testing Architecture
+
+### Property-Based Testing
+
+RustAPI uses `proptest` for property-based testing of critical components:
+
+| Test Suite | Validates |
+|------------|-----------|
+| Streaming Memory | Memory bounds during streaming |
+| Audit Events | Field completeness and serialization |
+| CSRF Tokens | Token lifecycle and uniqueness |
+| OAuth2 Tokens | Token exchange round-trips |
+| OpenTelemetry | Trace context propagation |
+| Structured Logging | Log format compliance |
+
+```rust
+// Example property test
+proptest! {
+    #[test]
+    fn streaming_respects_memory_bounds(data: Vec<u8>) {
+        // Property: streaming never exceeds configured limit
+        prop_assert!(stream_memory_usage(&data) <= MAX_BUFFER_SIZE);
+    }
+}
+```
 
 ---
 

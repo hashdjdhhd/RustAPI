@@ -962,7 +962,42 @@ async fn user_page(
 
 ## Testing
 
-### TestClient
+### Using `rustapi-testing` (Recommended)
+
+```rust
+use rustapi_testing::{TestServer, Matcher};
+
+#[tokio::test]
+async fn test_api() {
+    let server = TestServer::new(app()).await;
+    
+    let response = server
+        .get("/users/1")
+        .send()
+        .await;
+    
+    response
+        .assert_status(200)
+        .assert_json(Matcher::object()
+            .field("id", 1)
+            .field("name", Matcher::string()));
+}
+```
+
+### Expectation Builder
+
+```rust
+use rustapi_testing::Expectation;
+
+Expectation::new()
+    .method("POST")
+    .path("/users")
+    .body_json(json!({ "name": "Alice" }))
+    .expect_status(201)
+    .expect_header("Location", "/users/1");
+```
+
+### TestClient (Legacy)
 
 ```rust
 use rustapi_rs::test::TestClient;
@@ -1135,7 +1170,113 @@ rustapi-rs = { version = "0.1.4", features = ["full"] }
 | `cookies` | Cookie extraction |
 | `ws` | WebSocket support |
 | `view` | Template engine (Tera) |
+| `simd-json` | 2-4x faster JSON parsing |
+| `audit` | GDPR/SOC2 audit logging |
 | `full` | All features |
+
+---
+
+## Background Jobs
+
+Process tasks asynchronously with `rustapi-jobs`.
+
+### Basic Usage
+
+```rust
+use rustapi_jobs::{Job, JobQueue, MemoryBackend};
+
+// Define a job
+#[derive(Serialize, Deserialize)]
+struct SendEmailJob {
+    to: String,
+    subject: String,
+}
+
+// Create queue with in-memory backend (dev)
+let queue = JobQueue::new(MemoryBackend::new());
+
+// Enqueue a job
+queue.push(Job::new("send_email", SendEmailJob {
+    to: "user@example.com".into(),
+    subject: "Welcome!".into(),
+})).await?;
+
+// Process jobs
+queue.process(|job| async move {
+    // Handle job based on type
+    Ok(())
+}).await;
+```
+
+### Redis Backend (Production)
+
+```rust
+use rustapi_jobs::{JobQueue, RedisBackend};
+
+let backend = RedisBackend::new("redis://localhost:6379").await?;
+let queue = JobQueue::new(backend);
+```
+
+### Postgres Backend
+
+```rust
+use rustapi_jobs::{JobQueue, PostgresBackend};
+
+let backend = PostgresBackend::new("postgres://localhost/jobs").await?;
+let queue = JobQueue::new(backend);
+```
+
+---
+
+## Streaming Request Bodies
+
+Handle large uploads efficiently without buffering.
+
+```rust
+use rustapi_rs::prelude::*;
+use rustapi_core::stream::StreamBody;
+
+#[rustapi_rs::post("/upload")]
+async fn upload(body: StreamBody) -> Result<Json<UploadResult>, ApiError> {
+    let mut total_size = 0;
+    
+    while let Some(chunk) = body.next().await {
+        let chunk = chunk?;
+        total_size += chunk.len();
+        // Process chunk without holding entire body in memory
+    }
+    
+    Ok(Json(UploadResult { size: total_size }))
+}
+```
+
+---
+
+## Audit Logging
+
+Track user actions for compliance (GDPR, SOC2).
+
+```rust
+use rustapi_extras::audit::{AuditStore, MemoryStore, AuditEvent};
+
+// Create audit store
+let store = MemoryStore::new();
+
+// Log an event
+store.log(AuditEvent::new("user.login")
+    .user_id("user-123")
+    .ip_address("192.168.1.1")
+    .metadata(json!({ "browser": "Chrome" }))
+).await?;
+
+// Query events
+let events = store.query()
+    .user_id("user-123")
+    .action("user.*")
+    .since(yesterday)
+    .execute()
+    .await?;
+```
 
 ---
 
