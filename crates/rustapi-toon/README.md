@@ -1,86 +1,42 @@
-# rustapi-toon
+# RustAPI TOON
 
-TOON (Token-Oriented Object Notation) support for RustAPI framework.
+**Token-Oriented Object Notation (TOON) support.**
 
-## What is TOON?
+## 🤖 What is TOON?
 
-TOON is a compact, human-readable format designed for passing structured data to Large Language Models (LLMs) with significantly reduced token usage (typically 20-40% savings).
+TOON is an experimental, density-optimized data format designed for **High-Volume LLM Interactions**.
 
-## Quick Example
+When building agents or APIs that consume massive amounts of structured data via LLMs (GPT-4, Claude), standard JSON is token-expensive due to repeated keys and syntax overhead. TOON eliminates this redundancy.
 
-**JSON (16 tokens, 40 bytes):**
+## Comparison
+
+**JSON (Expensive)**
 ```json
-{
-  "users": [
-    { "id": 1, "name": "Alice" },
-    { "id": 2, "name": "Bob" }
-  ]
-}
+[
+  {"id": 1, "role": "admin", "active": true},
+  {"id": 2, "role": "user",  "active": true},
+  {"id": 3, "role": "user",  "active": false}
+]
 ```
 
-**TOON (13 tokens, 28 bytes) - 18.75% token savings:**
+**TOON (Optimized)**
 ```
-users[2]{id,name}:
-  1,Alice
-  2,Bob
+users[3]{id,role,active}:
+  1,admin,true
+  2,user,true
+  3,user,false
 ```
 
 ## Usage
 
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-rustapi-rs = { version = "0.1", features = ["toon"] }
-```
-
-### Toon Extractor
-
-Parse TOON request bodies:
+RustAPI handles this transparently via content negotiation.
 
 ```rust
-use rustapi_rs::prelude::*;
-use rustapi_rs::toon::Toon;
+use rustapi_toon::Toon;
 
-#[derive(Deserialize)]
-struct CreateUser {
-    name: String,
-    email: String,
-}
-
-async fn create_user(Toon(user): Toon<CreateUser>) -> impl IntoResponse {
-    // user is parsed from TOON format
-    Json(user)
+// Accepts explicit TOON or JSON automatically based on Content-Type
+#[post("/ingest")]
+async fn ingest(Toon(data): Toon<Vec<User>>) -> impl Responder {
+    // ...
 }
 ```
-
-### Toon Response
-
-Return TOON formatted responses:
-
-```rust
-use rustapi_rs::prelude::*;
-use rustapi_rs::toon::Toon;
-
-#[derive(Serialize)]
-struct User {
-    id: u64,
-    name: String,
-}
-
-async fn get_user() -> Toon<User> {
-    Toon(User {
-        id: 1,
-        name: "Alice".to_string(),
-    })
-}
-```
-
-## Content Types
-
-- Request: `application/toon` or `text/toon`
-- Response: `application/toon`
-
-## License
-
-MIT OR Apache-2.0

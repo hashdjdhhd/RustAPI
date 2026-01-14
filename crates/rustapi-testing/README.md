@@ -1,39 +1,39 @@
 # RustAPI Testing
 
-Testing utilities and test harness for the RustAPI framework.
+**A fluid, ergonomic test harness for RustAPI applications.**
+
+Don't just test your logic; test your endpoints.
 
 ## Features
 
-- **TestClient**: A wrapper around `reqwest` and `hyper` for testing your API endpoints integration.
-- **Fluid Assertions**: Custom matchers for status codes, headers, and body content.
-- **Mocking**: Helpers for mocking dependencies (if applicable).
-- **Proptest Integration**: Strategies for property-based testing of handlers.
+- **`TestClient`**: Spawns your application directly (no port binding needed) and sends requests.
+- **Fluid Assertions**: `res.assert_status(200).assert_json(&expected)`.
+- **Mocking**: Utilities to swap out state/databases during tests.
 
-## Usage
-
-Add to `dev-dependencies`:
-
-```toml
-[dev-dependencies]
-rustapi-testing = "0.1"
-```
-
-### Example
+## Example
 
 ```rust
-use rustapi_testing::TestClient;
-use rustapi::status::StatusCode;
+#[cfg(test)]
+mod tests {
+    use rustapi_testing::TestClient;
+    use rustapi_rs::prelude::*;
 
-#[tokio::test]
-async fn test_create_user() {
-    let client = TestClient::new(app());
-    
-    let res = client.post("/users")
-        .json(&json!({ "name": "Alice" }))
-        .send()
-        .await;
-        
-    res.assert_status(StatusCode::OK);
-    res.assert_json_snapshot!("create_user_response");
+    #[tokio::test]
+    async fn test_create_user() {
+        // 1. Setup app
+        let app = RustApi::new().mount_route(create_user_route());
+        let client = TestClient::new(app);
+
+        // 2. Execute
+        let response = client.post("/users")
+            .json(&json!({ "name": "Alice" }))
+            .send()
+            .await;
+
+        // 3. Assert
+        response
+            .assert_status(StatusCode::OK)
+            .assert_json_path("$.id", 1);
+    }
 }
 ```

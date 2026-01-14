@@ -1,26 +1,44 @@
 # RustAPI Validate
 
-Validation system for the RustAPI framework.
+**Declarative, type-safe request validation.**
 
-> **Note**: This is an internal crate. You should depend on `rustapi-rs` instead.
+This crate integrates the `validator` library deeply into the RustAPI extractor system.
 
-## Features
+## The Problem
+Manually checking `if email.contains("@")` in every handler is tedious and error-prone.
 
-- **Declarative Validation**: Uses `#[derive(Validate)]` on structs.
-- **Common Rules**: Email, Length, Range, Regex.
-- **Error Formatting**: Provides standardized 422 JSON error responses.
+## The Solution
+Define rules on your structs. RustAPI automatically runs them and returns `422 Unprocessable Entity` if constraints are violated.
 
 ## Usage
 
 ```rust
 use rustapi_rs::prelude::*;
 
-#[derive(Serialize, Deserialize, Validate, Schema)]
-struct User {
-    #[validate(email)]
-    email: String,
+#[derive(Deserialize, Validate, Schema)]
+pub struct UserSignup {
+    #[validate(email(message = "Invalid email address"))]
+    pub email: String,
 
-    #[validate(length(min = 3))]
-    username: String,
+    #[validate(length(min = 8, message = "Password too short"))]
+    pub password: String,
+
+    #[validate(range(min = 18, max = 100))]
+    pub age: u8,
+}
+
+// If execution enters this function, `body` is GUARANTEED to be valid.
+#[post("/signup")]
+async fn signup(Json(body): Json<UserSignup>) -> impl Responder {
+    // ...
 }
 ```
+
+## Supported Validators
+- `email`
+- `url`
+- `length`
+- `range`
+- `custom` (use your own functions)
+- `contains`
+- `regex`

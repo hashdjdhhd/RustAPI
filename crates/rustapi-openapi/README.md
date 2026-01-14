@@ -1,24 +1,25 @@
 # RustAPI OpenAPI
 
-OpenAPI documentation generation for the RustAPI framework.
+**Automated API specifications and Swagger UI integration.**
 
-> **Note**: This is an internal crate. You should depend on `rustapi-rs` instead.
+> ℹ️ **Note**: This crate is used internally by `rustapi-rs` to provide the `.docs()` method on the server builder.
 
-## Features
+## How It Works
 
-- **Auto-generation**: Generates OpenAPI v3 specification from your code.
-- **Swagger UI**: Serves an interactive documentation page.
-- **Schema Derivation**: `#[derive(Schema)]` for structs (re-exports `utoipa::ToSchema`).
-- **Standard Schemas**: Includes common schemas like `ErrorSchema`, `ValidationErrorSchema`.
+1.  **Reflection**: RustAPI macros collect metadata about your routes (path, method, input types, output types) at compile time.
+2.  **Schema Gen**: It uses `utoipa` to generate JSON Schemas for your Rust structs.
+3.  **Spec Build**: At runtime, it assembles the full OpenAPI 3.0 JSON specification.
+4.  **UI Serve**: It embeds the Swagger UI assets and serves them at your specified path.
 
-## Integration
+## Customization
 
-This crate is tightly integrated into `rustapi-core`.
+You can inject custom security schemes or info into the spec via the `RustApi` builder.
 
 ```rust
-use rustapi_openapi::{OpenApiSpec, ErrorSchema};
-
-// Create a spec
-let spec = OpenApiSpec::new("My API", "1.0")
-    .register::<ErrorSchema>();
+RustApi::new()
+    .api_name("My Enterprise API")
+    .api_version("2.1.0")
+    .docs("/swagger-ui")
+    .run("0.0.0.0:3000")
+    .await
 ```

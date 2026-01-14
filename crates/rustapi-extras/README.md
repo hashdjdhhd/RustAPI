@@ -1,71 +1,48 @@
-# rustapi-extras
+# RustAPI Extras
 
-Optional security and utility features for the RustAPI framework.
+**Production-ready middleware and utilities for RustAPI.**
 
-## Features
+This crate provides optional "batteries" that you can enable to build robust applications.
 
-This crate provides production-ready middleware and utilities that are opt-in via Cargo feature flags to minimize binary size when not needed.
+## Feature Flags
 
-### Available Features
+Enable these in your `Cargo.toml`.
 
-- `jwt` - JWT authentication middleware and `AuthUser<T>` extractor
-- `cors` - CORS middleware with builder pattern configuration
-- `rate-limit` - IP-based rate limiting middleware
-- `config` - Configuration management with `.env` file support
-- `cookies` - Cookie parsing extractor
-- `extras` - Meta feature enabling jwt, cors, and rate-limit
-- `full` - All features enabled
+| Feature | Description | Dependencies |
+|---------|-------------|--------------|
+| `jwt` | JSON Web Token authentication extractor & middleware | `jsonwebtoken` |
+| `cors` | Cross-Origin Resource Sharing middleware | `tower-http` |
+| `rate-limit` | IP-based rate limiting | `governor` / `dashmap` |
+| `sqlx` | Database integration helpers | `sqlx` |
+| `config` | Typed configuration loading from env/files | `config`, `dotenvy` |
+| `otel` | OpenTelemetry observability integration | `opentelemetry` |
 
-## Usage
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-rustapi-extras = { version = "0.1", features = ["jwt", "cors"] }
-```
-
-## Examples
+## Usage Examples
 
 ### JWT Authentication
 
 ```rust
-use rustapi_extras::jwt::{JwtLayer, AuthUser};
-use serde::Deserialize;
+use rustapi_rs::prelude::*;
+use rustapi_extras::jwt::{JwtAuth, AuthUser};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Claims {
     sub: String,
-    exp: u64,
+    exp: usize,
 }
 
-async fn protected(AuthUser(claims): AuthUser<Claims>) -> String {
-    format!("Hello, {}", claims.sub)
+#[get("/protected")]
+async fn protected_route(auth: AuthUser<Claims>) -> impl Responder {
+    format!("Hello user {}", auth.sub)
 }
 ```
 
-### CORS Configuration
+### CORS
 
 ```rust
 use rustapi_extras::cors::CorsLayer;
-use http::Method;
 
-let cors = CorsLayer::new()
-    .allow_origins(["https://example.com"])
-    .allow_methods([Method::GET, Method::POST])
-    .allow_credentials(true);
+RustApi::new()
+    .layer(CorsLayer::permissive())
+    // ...
 ```
-
-### Rate Limiting
-
-```rust
-use rustapi_extras::rate_limit::RateLimitLayer;
-use std::time::Duration;
-
-// Allow 100 requests per minute per IP
-let rate_limit = RateLimitLayer::new(100, Duration::from_secs(60));
-```
-
-## License
-
-Licensed under either of Apache License, Version 2.0 or MIT license at your option.

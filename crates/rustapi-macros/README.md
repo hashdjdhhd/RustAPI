@@ -1,31 +1,38 @@
 # RustAPI Macros
 
-Internal procedural macros for the RustAPI framework.
+**Procedural macros that power the RustAPI developer experience.**
 
-> **Note**: This is an internal crate. You should depend on `rustapi-rs` instead.
+> ℹ️ **Note**: These macros are re-exported by `rustapi-rs`. You do not need to add this crate manually.
 
-## Features
+## Attribute Macros
 
-- `#[rustapi::main]`: Async runtime entry point.
-- `#[rustapi::get]`: GET handler definition.
-- `#[rustapi::post]`: POST handler definition.
-- `#[rustapi::put]`: PUT handler definition.
-- `#[rustapi::patch]`: PATCH handler definition.
-- `#[rustapi::delete]`: DELETE handler definition.
-- `#[rustapi::tag]`: OpenAPI tag metadata.
-- `#[rustapi::summary]`: OpenAPI summary metadata.
-- `#[rustapi::description]`: OpenAPI description metadata.
+### `#[rustapi::main]`
+Replaces `#[tokio::main]`. Sets up the runtime, tracing subscriber, and other framework essentials.
 
-## Usage
+### HTTP Method Handlers
+Registers a function as a route handler.
 
-These are automatically exported via the `rustapi` prefix when using `rustapi-rs`.
+- `#[rustapi::get("/users/{id}")]`
+- `#[rustapi::post("/users")]`
+- `#[rustapi::put("/users/{id}")]`
+- `#[rustapi::delete("/users/{id}")]`
+- `#[rustapi::patch("/users/{id}")]`
+- `#[rustapi::head("/health")]`
+- `#[rustapi::options("/cors")]`
 
-```rust
-use rustapi_rs::prelude::*;
+### OpenAPI Metadata
+Enrich your auto-generated documentation.
 
-#[rustapi::get("/hello")]
-#[rustapi::summary("Hello Endpoint")]
-async fn hello() -> &'static str {
-    "Hello World"
-}
-```
+- `#[rustapi::tag("Auth")]`: Groups endpoints.
+- `#[rustapi::summary("Logs in a user")]`: Brief summary.
+- `#[rustapi::description("Full markdown description...")]`: Detailed docs.
+
+## Derive Macros
+
+### `#[derive(Schema)]`
+Generates a JSON Schema for the struct, used by `rustapi-openapi`.
+*Wraps `utoipa::ToSchema` via `rustapi-openapi` integration.*
+
+### `#[derive(Validate)]`
+Generates validation logic.
+*Wraps `validator::Validate` via `rustapi-validate` integration.*

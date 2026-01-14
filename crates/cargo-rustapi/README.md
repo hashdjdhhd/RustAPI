@@ -1,66 +1,61 @@
 # cargo-rustapi
 
-The official CLI tool for the RustAPI framework. Scaffold new projects, run development servers, and manage database migrations.
+**The official CLI tool for the RustAPI framework.**
 
-## Installation
+Use this tool to scaffold new projects, generate code, and fast-track your development workflow.
 
-`ash
+## 📦 Installation
+
+```bash
 cargo install cargo-rustapi
-`
+```
 
-## Features
+## 🛠️ Usage
 
-- **Project Scaffolding**: Create new projects with 
-ew command, choosing from templates like pi, web, or ull.
-- **Development Server**: Run your project with un command, supporting hot-reloading (via cargo-watch integration if available).
-- **Code Generation**: Generate handlers, models, and CRUD operations with generate.
-- **Database Management**: (Planned) Simple wrappers around migration tools.
+### Creating a New Project
 
-## Usage
+Use the `new` command to generate a project structure.
 
-### Create a New Project
+```bash
+# Interactive mode (Recommended)
+cargo rustapi new my-app
 
-`ash
-# Interactive mode
-cargo rustapi new my-project
+# Quick start with specific template
+cargo rustapi new my-app --template api
+```
 
-# With template
-cargo rustapi new my-project --template api
+**Available Templates:**
+- `minimal`: Basic `main.rs` and `Cargo.toml`.
+- `api`: REST API structure with separated `handlers` and `models`.
+- `web`: Web application with HTML templates (`rustapi-view`).
+- `full`: Complete example with Database, Auth, and Docker support.
 
-# With features
-cargo rustapi new my-project --features jwt,cors
-`
+### Running Development Server
 
-### Run Development Server
+Run your application with hot-reloading (requires `cargo-watch`).
 
-`ash
-# Run with auto-reload
+```bash
 cargo rustapi run
+```
 
-# Run on specific port
-cargo rustapi run --port 8080
-`
+### Code Generation
 
-### Generate Code
+Save time by generating boilerplate.
 
-`ash
-# Generate a new handler
+```bash
+# Generate a handler function and register it
 cargo rustapi generate handler users
 
-# Generate a model
+# Generate a database model
 cargo rustapi generate model User
 
-# Generate CRUD endpoints (Handlers + Models + Tests)
-cargo rustapi generate crud users
-`
+# Generate a full CRUD resource (Model + Handlers + Tests)
+cargo rustapi generate crud product
+```
 
-## Templates
+### Managing Migrations (Planned)
 
-- minimal: Bare bones setup.
-- pi: REST API structure with handlers and models.
-- web: Includes ustapi-view and 	emplates folder.
-- ull: Complete setup with Auth, DB (SQLx), and more.
-
-## License
-
-MIT OR Apache-2.0
+```bash
+cargo rustapi migrate run
+cargo rustapi migrate revert
+```
