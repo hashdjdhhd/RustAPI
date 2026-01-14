@@ -165,29 +165,36 @@ type ApiSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 // Handlers
 // ============================================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Schema)]
 struct GraphQLRequest {
     query: String,
     #[serde(default)]
+    #[schema(value_type = Object)]
     variables: serde_json::Value,
     #[serde(default)]
     operation_name: Option<String>,
 }
+
+#[derive(Serialize, Schema)]
+struct GraphQLApiResult(
+    #[schema(value_type = Object)]
+    serde_json::Value
+);
 
 /// GraphQL endpoint
 #[rustapi_rs::post("/graphql")]
 async fn graphql_handler(
     schema: State<ApiSchema>,
     Json(request): Json<GraphQLRequest>,
-) -> Json<serde_json::Value> {
+) -> Json<GraphQLApiResult> {
     let query = request.query;
     let response = schema.execute(&query).await;
-    Json(serde_json::to_value(response).unwrap())
+    Json(GraphQLApiResult(serde_json::to_value(response).unwrap()))
 }
 
 /// GraphQL playground UI
 #[rustapi_rs::get("/graphql")]
-async fn graphql_playground() -> impl IntoResponse {
+async fn graphql_playground() -> Html<&'static str> {
     Html(
         r#"
         <!DOCTYPE html>
@@ -217,8 +224,8 @@ async fn graphql_playground() -> impl IntoResponse {
 
 /// Root endpoint
 #[rustapi_rs::get("/")]
-async fn index() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
+async fn index() -> Json<GraphQLApiResult> {
+    Json(GraphQLApiResult(serde_json::json!({
         "message": "GraphQL API Demo",
         "endpoints": {
             "graphql": "/graphql",
@@ -234,7 +241,7 @@ async fn index() -> Json<serde_json::Value> {
   }
 }
         "#
-    }))
+    })))
 }
 
 // ============================================

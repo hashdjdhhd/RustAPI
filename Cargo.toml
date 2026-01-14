@@ -23,13 +23,14 @@ members = [
     "examples/websocket",
     "examples/templates",
     "examples/rate-limit-demo",
-    # "examples/graphql-api",  # TODO: Needs API updates
+    "examples/graphql-api",
     "examples/microservices",
     "examples/microservices-advanced",
     "examples/event-sourcing",
     "examples/serverless-lambda",
     "examples/middleware-chain",
-    # "examples/cors-test",  # TODO: Needs implementation
+    "examples/phase11-demo",
+    "examples/cors-test",
     "benches/toon_bench",
     "benches/rustapi_bench",
 ]

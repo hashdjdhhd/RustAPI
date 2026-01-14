@@ -11,12 +11,8 @@ use rustapi_core::{
     health::{HealthCheckBuilder, HealthStatus},
     RustApi,
 };
-#[cfg(all(
-    feature = "timeout",
-    feature = "guard",
-    feature = "logging",
-    feature = "circuit-breaker"
-))]
+
+#[allow(unused_imports)]
 use rustapi_extras::{
     CircuitBreakerLayer, LogFormat, LoggingLayer, PermissionGuard, RoleGuard, TimeoutLayer,
 };
@@ -29,14 +25,20 @@ async fn index() -> &'static str {
 
 #[rustapi_macros::get("/admin")]
 #[cfg(feature = "guard")]
-async fn admin_only(_guard: RoleGuard<"admin">) -> &'static str {
-    "Welcome, admin!"
+async fn admin_only(guard: RoleGuard) -> Result<&'static str, ApiError> {
+    if guard.role != "admin" {
+        return Err(ApiError::forbidden("Admin role required".to_string()));
+    }
+    Ok("Welcome, admin!")
 }
 
 #[rustapi_macros::get("/users/edit")]
 #[cfg(feature = "guard")]
-async fn edit_users(_guard: PermissionGuard<"users.edit">) -> &'static str {
-    "Editing users"
+async fn edit_users(guard: PermissionGuard) -> Result<&'static str, ApiError> {
+    if !guard.permissions.contains(&"users.edit".to_string()) {
+        return Err(ApiError::forbidden("Missing permission: users.edit".to_string()));
+    }
+    Ok("Editing users")
 }
 
 #[rustapi_macros::get("/slow")]
@@ -46,8 +48,17 @@ async fn slow_endpoint() -> &'static str {
     "This should timeout"
 }
 
+#[derive(serde::Serialize, rustapi_rs::prelude::Schema)]
+struct HealthResponse {
+    status: String,
+    #[schema(value_type = std::collections::HashMap<String, String>)]
+    checks: serde_json::Value,
+    version: Option<String>,
+    timestamp: String,
+}
+
 #[rustapi_macros::get("/health")]
-async fn health_endpoint() -> rustapi_core::Json<serde_json::Value> {
+async fn health_endpoint() -> rustapi_core::Json<HealthResponse> {
     // Create health check
     let health = HealthCheckBuilder::new(true)
         .add_check("database", || async {
@@ -64,7 +75,20 @@ async fn health_endpoint() -> rustapi_core::Json<serde_json::Value> {
         .build();
 
     let result = health.execute().await;
-    rustapi_core::Json(serde_json::to_value(result).unwrap())
+    
+    // Map status enum to string manually or use debug/string representation
+    let status_str = match result.status {
+        HealthStatus::Healthy => "healthy".to_string(),
+        HealthStatus::Unhealthy { .. } => "unhealthy".to_string(),
+        HealthStatus::Degraded { .. } => "degraded".to_string(),
+    };
+
+    rustapi_core::Json(HealthResponse {
+        status: status_str,
+        checks: serde_json::to_value(result.checks).unwrap_or(serde_json::Value::Null),
+        version: result.version,
+        timestamp: result.timestamp,
+    })
 }
 
 #[tokio::main]
@@ -105,14 +129,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // Mount routes
-    app = app
-        .mount(index)
-        .mount(slow_endpoint)
-        .mount(health_endpoint);
+    // Routes are automatically mounted via rustapi_macros::get
 
-    #[cfg(feature = "guard")]
+    #[cfg(not(feature = "guard"))]
     {
-        app = app.mount(admin_only).mount(edit_users);
+        // If guards are disabled, we might want to mount these anyway but the handlers have guards?
+        // Actually, the handlers themselves have #[cfg(feature = "guard")].
+        // So if the feature is off, the handlers don't exist, so we can't mount them anyway.
+        // Auto-mounting handles this naturally.
     }
 
     println!("🚀 Phase 11 Demo running on http://localhost:3000");
