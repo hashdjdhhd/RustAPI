@@ -1,9 +1,7 @@
 use super::{JobBackend, JobRequest};
 use crate::error::{JobError, Result};
 use async_trait::async_trait;
-use chrono::Utc;
 use sqlx::{Pool, Postgres, Row};
-use std::sync::Arc;
 
 /// Postgres-backed job queue
 #[derive(Debug, Clone)]

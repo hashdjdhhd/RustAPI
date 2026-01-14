@@ -2,8 +2,6 @@ use super::{JobBackend, JobRequest};
 use crate::error::{JobError, Result};
 use async_trait::async_trait;
 use redis::{AsyncCommands, Client, Script};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 /// Redis-backed job queue
 #[derive(Debug, Clone)]
@@ -52,7 +50,7 @@ impl JobBackend for RedisBackend {
         let score = job.run_at.unwrap_or(chrono::Utc::now()).timestamp() as f64;
         let payload = serde_json::to_string(&job)?;
 
-        conn.zadd(&self.queue_key, score, payload)
+        conn.zadd::<_, _, _, ()>(&self.queue_key, score, payload)
             .await
             .map_err(|e| JobError::BackendError(e.to_string()))?;
 
