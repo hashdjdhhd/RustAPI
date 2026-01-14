@@ -3,6 +3,9 @@ name: Benchmark
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -23,4 +26,10 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
       - name: Run Benchmarks
-        run: cargo bench --workspace
+        run: cargo bench --workspace | tee benchmark_results.txt
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark_results.txt

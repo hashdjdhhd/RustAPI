@@ -651,3 +651,26 @@ RustAPI's architecture enables:
 5. **Stability** — Internal changes don't break user code
 
 The facade pattern is the key: `rustapi-rs` provides a stable surface, while internal crates can evolve freely.
+
+---
+
+## Workspace Structure & API Surface
+
+### Public Surface
+
+- **Public Crates**:
+  - `rustapi-rs`: Main framework entry point (Facade).
+  - `cargo-rustapi`: CLI tool.
+- **Internal/Support Crates**:
+  - `rustapi-core`, `rustapi-macros`, `rustapi-validate`;
+  - `rustapi-openapi`, `rustapi-extras`, `rustapi-toon`;
+  - `rustapi-ws`, `rustapi-view`, `rustapi-testing`, `rustapi-jobs`.
+
+### Semver Policy
+
+- **Current Status**: 0.x (Unstable).
+- **Policy**: Public API changes may occur. `rustapi-rs` versions will follow SemVer, but internal crate versions (`rustapi-core` etc.) are synchronized but treated as implementation details.
+
+### Workspace Members
+
+11 Library Crates + 2 Bench suites + 1 CLI (`crates/cargo-rustapi`).

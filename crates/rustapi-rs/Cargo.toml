@@ -31,6 +31,7 @@ rustapi-openapi = { workspace = true, default-features = false }
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 utoipa = { workspace = true }
+doc-comment = "0.3"
 
 [features]
 default = ["swagger-ui"]

@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: '0 0 * * *' # Run daily at midnight
 
+permissions:
+  contents: read
+
 jobs:
   audit:
     name: Audit
@@ -31,3 +34,14 @@ jobs:
         run: cargo install cargo-audit
       - name: Run audit
         run: cargo audit
+
+  deny:
+    name: License & Bans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@cargo-deny
+      - name: Run cargo deny
+        run: cargo deny check
+

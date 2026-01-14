@@ -19,6 +19,15 @@ Thank you for your interest in contributing to RustAPI! We welcome contributions
 
 By participating in this project, you agree to maintain a respectful and inclusive environment for everyone.
 
+## Governance & Merge Policy
+
+To maintain repository stability and code quality, we enforce the following policies:
+
+1.  **Branch Protection**: The `main` branch is protected. Direct pushes are disabled.
+2.  **Pull Requests**: All changes must be submitted via Pull Request.
+3.  **Linear History**: We use **Squash Merges** to keep the history clean and linear. Merge commits are disabled.
+4.  **Force Pushes**: Force pushes to `main` are strictly prohibited.
+
 ## Getting Started
 
 ### First Time Contributors
@@ -236,6 +245,21 @@ pub async fn handle_request() { }
 - Use `thiserror` for custom error types
 - Provide helpful error messages
 - Document error conditions in rustdoc
+- Provide helpful error messages
+
+### API Guidelines
+
+To ensure `rustapi-rs` remains stable and reliable, please follow these API design rules:
+
+1.  **Visibility**: Prefer `pub(crate)` by default. Only expose items that are intended for end-users.
+2.  **Unsafe Code**: avoid `unsafe` unless absolutely necessary.
+    - All `unsafe` blocks **must** have a `// SAFETY: ...` comment explaining why it is safe.
+    - Miri tests should be added for unsafe code.
+3.  **SemVer**: We strictly follow semantic versioning.
+    - Breaking changes to public APIs require a MAJOR version bump.
+    - Additions require a MINOR version bump.
+    - Patches must be backwards compatible.
+
 
 ## Pull Request Process
 

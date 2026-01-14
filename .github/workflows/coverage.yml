@@ -6,12 +6,16 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
+
 jobs:
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
     container:
-      image: xd009642/tarpaulin:develop-nightly
+      image: xd009642/tarpaulin:0.27.3
       options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,46 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-cli:
+    name: Build CLI
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            extension: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            extension: ".exe"
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            extension: ""
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          
+      - name: Build
+        run: cargo build -p cargo-rustapi --release --target ${{ matrix.target }}
+        
+      - name: Rename and Pack
+        shell: bash
+        run: |
+          cp target/${{ matrix.target }}/release/cargo-rustapi${{ matrix.extension }} cargo-rustapi-${{ matrix.target }}${{ matrix.extension }}
+          
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: cargo-rustapi-${{ matrix.target }}${{ matrix.extension }}

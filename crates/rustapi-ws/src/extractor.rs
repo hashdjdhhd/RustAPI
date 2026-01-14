@@ -115,7 +115,6 @@ impl FromRequest for WebSocket {
     }
 }
 
-
 impl OperationModifier for WebSocket {
     fn update_operation(_op: &mut Operation) {
         // WebSocket endpoints don't have regular request body parameters
