@@ -249,7 +249,7 @@ mod property_tests {
 
                 // Error MUST be Payload Too Large
                 let err = error.unwrap_err();
-                prop_assert_eq!(err.status_code, StatusCode::PAYLOAD_TOO_LARGE);
+                prop_assert_eq!(err.status, StatusCode::PAYLOAD_TOO_LARGE);
 
                 Ok(())
             })?;
@@ -316,7 +316,7 @@ mod property_tests {
                 prop_assert!(error.is_err());
 
                 let err = error.unwrap_err();
-                prop_assert_eq!(err.status_code, StatusCode::PAYLOAD_TOO_LARGE);
+                prop_assert_eq!(err.status, StatusCode::PAYLOAD_TOO_LARGE);
 
                 Ok(())
             })?;

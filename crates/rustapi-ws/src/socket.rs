@@ -16,9 +16,10 @@ use tokio_tungstenite::WebSocketStream as TungsteniteStream;
 type UpgradedConnection = TungsteniteStream<TokioIo<Upgraded>>;
 
 /// Internal implementation of the WebSocket stream
+#[allow(clippy::large_enum_variant)]
 enum StreamImpl {
     /// Direct connection (no heartbeat/management)
-    Direct(Box<UpgradedConnection>),
+    Direct(UpgradedConnection),
     /// Managed connection (heartbeat/cleanup running in background task)
     Managed {
         tx: mpsc::Sender<Message>,
@@ -35,7 +36,7 @@ impl WebSocketStream {
     /// Create a new direct WebSocket stream
     pub(crate) fn new(inner: UpgradedConnection) -> Self {
         Self {
-            inner: StreamImpl::Direct(Box::new(inner)),
+            inner: StreamImpl::Direct(inner),
         }
     }
 
