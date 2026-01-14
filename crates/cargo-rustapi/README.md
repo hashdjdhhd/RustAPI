@@ -1,18 +1,26 @@
 # cargo-rustapi
 
-CLI tool for the RustAPI framework - Project scaffolding and development utilities.
+The official CLI tool for the RustAPI framework. Scaffold new projects, run development servers, and manage database migrations.
 
 ## Installation
 
-```bash
+`ash
 cargo install cargo-rustapi
-```
+`
+
+## Features
+
+- **Project Scaffolding**: Create new projects with 
+ew command, choosing from templates like pi, web, or ull.
+- **Development Server**: Run your project with un command, supporting hot-reloading (via cargo-watch integration if available).
+- **Code Generation**: Generate handlers, models, and CRUD operations with generate.
+- **Database Management**: (Planned) Simple wrappers around migration tools.
 
 ## Usage
 
 ### Create a New Project
 
-```bash
+`ash
 # Interactive mode
 cargo rustapi new my-project
 
@@ -21,90 +29,37 @@ cargo rustapi new my-project --template api
 
 # With features
 cargo rustapi new my-project --features jwt,cors
-```
-
-### Available Templates
-
-- `minimal` - Bare minimum RustAPI app (default)
-- `api` - REST API with CRUD example
-- `web` - Web app with templates
-- `full` - Full-featured with JWT, CORS, database
+`
 
 ### Run Development Server
 
-```bash
+`ash
 # Run with auto-reload
 cargo rustapi run
 
 # Run on specific port
 cargo rustapi run --port 8080
-
-# Run with specific features
-cargo rustapi run --features jwt
-```
+`
 
 ### Generate Code
 
-```bash
+`ash
 # Generate a new handler
 cargo rustapi generate handler users
 
 # Generate a model
 cargo rustapi generate model User
 
-# Generate CRUD endpoints
+# Generate CRUD endpoints (Handlers + Models + Tests)
 cargo rustapi generate crud users
-```
+`
 
-## Commands
+## Templates
 
-| Command | Description |
-|---------|-------------|
-| `new <name>` | Create a new RustAPI project |
-| `run` | Run development server with auto-reload |
-| `generate <type> <name>` | Generate code from templates |
-| `docs` | Open API documentation |
-
-## Project Templates
-
-### Minimal Template
-```
-my-project/
-├── Cargo.toml
-├── src/
-│   └── main.rs
-└── .gitignore
-```
-
-### API Template
-```
-my-project/
-├── Cargo.toml
-├── src/
-│   ├── main.rs
-│   ├── handlers/
-│   │   └── mod.rs
-│   ├── models/
-│   │   └── mod.rs
-│   └── error.rs
-├── .env.example
-└── .gitignore
-```
-
-### Web Template
-```
-my-project/
-├── Cargo.toml
-├── src/
-│   ├── main.rs
-│   └── handlers/
-├── templates/
-│   ├── base.html
-│   └── index.html
-├── static/
-│   └── style.css
-└── .gitignore
-```
+- minimal: Bare bones setup.
+- pi: REST API structure with handlers and models.
+- web: Includes ustapi-view and 	emplates folder.
+- ull: Complete setup with Auth, DB (SQLx), and more.
 
 ## License
 
