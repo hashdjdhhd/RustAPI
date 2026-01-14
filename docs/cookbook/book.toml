@@ -1,7 +1,7 @@
 [book]
 authors = ["RustAPI Team"]
 language = "en"
-multilingual = false
+
 src = "src"
 title = "RustAPI Architecture Cookbook"
 
