@@ -26,10 +26,15 @@ pub struct DiscoverResponse {
     pub instances: Vec<ServiceInstance>,
 }
 
+#[derive(Serialize, Schema)]
+pub struct SimpleResponse {
+    pub message: String,
+}
+
 async fn register(
     State(state): State<RegistryState>,
     Json(payload): Json<RegisterRequest>,
-) -> Json<String> {
+) -> Json<SimpleResponse> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -48,7 +53,9 @@ async fn register(
         state.services.insert(payload.service_name, vec![instance]);
     }
 
-    Json("Registered".to_string())
+    Json(SimpleResponse {
+        message: "Registered".to_string(),
+    })
 }
 
 async fn discover(
@@ -64,7 +71,7 @@ async fn discover(
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Schema)]
 pub struct ServicesListResponse {
     pub services: std::collections::HashMap<String, Vec<ServiceInstance>>,
 }
