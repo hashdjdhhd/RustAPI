@@ -158,10 +158,10 @@ impl EnqueueOptions {
 mod property_tests {
     use super::*;
     use crate::backend::memory::InMemoryBackend as MemoryBackend;
+    use crate::JobError;
+    use async_trait::async_trait;
     use proptest::prelude::*;
     use serde::{Deserialize, Serialize};
-    use async_trait::async_trait;
-    use crate::JobError;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 

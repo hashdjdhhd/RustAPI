@@ -95,6 +95,18 @@ async fn run_with_watch(args: &RunArgs) -> Result<()> {
     let mut cmd = Command::new("cargo");
     cmd.args(["watch", "-x"]);
 
+    // Ignore heavy directories for better performance
+    cmd.args([
+        "-i",
+        ".git",
+        "-i",
+        "target",
+        "-i",
+        "node_modules",
+        "-i",
+        "assets",
+    ]);
+
     let mut run_cmd = String::from("run");
     if args.release {
         run_cmd.push_str(" --release");

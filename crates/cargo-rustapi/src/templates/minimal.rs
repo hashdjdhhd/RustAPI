@@ -20,9 +20,6 @@ serde = {{ version = "1", features = ["derive"] }}
         name = name,
         features = common::features_to_cargo(features),
     );
-    fs::write(format!("{name}/Cargo.toml"), cargo_toml).await?;
-
-    // src directory
     fs::create_dir_all(format!("{name}/src")).await?;
 
     // main.rs
@@ -56,10 +53,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .await
 }
 "#;
-    fs::write(format!("{name}/src/main.rs"), main_rs).await?;
 
-    // .gitignore
-    common::generate_gitignore(name).await?;
+    // Write files in parallel for better performance
+    let f1 = fs::write(format!("{name}/Cargo.toml"), cargo_toml);
+    let f2 = fs::write(format!("{name}/src/main.rs"), main_rs);
+    let f3 = common::generate_gitignore(name);
+
+    tokio::try_join!(f1, f2, f3)?;
 
     Ok(())
 }
