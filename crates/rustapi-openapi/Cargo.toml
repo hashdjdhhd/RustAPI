@@ -1,6 +1,7 @@
 [package]
 name = "rustapi-openapi"
-description = "OpenAPI documentation generator for RustAPI framework"
+description = "Automated OpenAPI 3.0 specification generator for RustAPI. Integrates Swagger UI."
+documentation = "https://docs.rs/rustapi-openapi"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

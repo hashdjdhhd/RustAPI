@@ -1,13 +1,13 @@
 [package]
 name = "rustapi-extras"
-description = "Optional security and utility features for RustAPI framework"
+description = "Production-ready middleware collection for RustAPI. Includes JWT auth, CORS, Rate Limiting, SQLx integration, and OpenTelemetry observability."
+documentation = "https://docs.rs/rustapi-extras"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation.workspace = true
 
 [dependencies]
 # Core dependency

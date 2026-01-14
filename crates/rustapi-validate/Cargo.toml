@@ -1,6 +1,7 @@
 [package]
 name = "rustapi-validate"
-description = "Validation system for RustAPI framework"
+description = "Type-safe request validation for RustAPI. Wrapper around the `validator` crate with deep framework integration."
+documentation = "https://docs.rs/rustapi-validate"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

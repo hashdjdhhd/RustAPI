@@ -1,6 +1,7 @@
 [package]
 name = "rustapi-view"
 description = "Template rendering support for RustAPI - Server-side HTML with Tera templates"
+documentation = "https://docs.rs/rustapi-view"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

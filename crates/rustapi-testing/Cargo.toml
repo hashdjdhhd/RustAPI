@@ -6,11 +6,11 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation.workspace = true
+documentation = "https://docs.rs/rustapi-testing"
 keywords.workspace = true
 categories.workspace = true
 rust-version.workspace = true
-description = "Testing utilities for RustAPI with matchers and expectations"
+description = "Testing utilities for RustAPI applications. Provides checking helpers, test servers, and fluid assertions."
 
 [dependencies]
 tokio = { workspace = true, features = ["full"] }

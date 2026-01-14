@@ -1,6 +1,7 @@
 [package]
 name = "rustapi-rs"
 description = "A FastAPI-like web framework for Rust - DX-first, type-safe, batteries included"
+documentation = "https://docs.rs/rustapi-rs"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

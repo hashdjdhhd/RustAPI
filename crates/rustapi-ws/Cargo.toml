@@ -1,6 +1,7 @@
 [package]
 name = "rustapi-ws"
 description = "WebSocket support for RustAPI - Real-time bidirectional communication"
+documentation = "https://docs.rs/rustapi-ws"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

@@ -1,6 +1,7 @@
 [package]
 name = "rustapi-toon"
 description = "TOON (Token-Oriented Object Notation) support for RustAPI - LLM-optimized data format"
+documentation = "https://docs.rs/rustapi-toon"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

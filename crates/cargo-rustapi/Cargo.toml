@@ -1,6 +1,7 @@
 [package]
 name = "cargo-rustapi"
-description = "CLI tool for RustAPI - Project scaffolding and development utilities"
+description = "The official CLI tool for the RustAPI framework. Scaffold new projects, run development servers, and manage database migrations."
+documentation = "https://docs.rs/cargo-rustapi"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
