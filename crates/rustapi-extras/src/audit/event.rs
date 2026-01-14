@@ -107,21 +107,16 @@ impl std::fmt::Display for AuditAction {
 }
 
 /// Severity level for audit events.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum AuditSeverity {
     /// Informational - normal operations
+    #[default]
     Info,
     /// Warning - unusual but not critical
     Warning,
     /// Critical - security or compliance concern
     Critical,
-}
-
-impl Default for AuditSeverity {
-    fn default() -> Self {
-        Self::Info
-    }
 }
 
 /// Compliance-related information for GDPR/SOC2.

@@ -171,29 +171,29 @@ impl MiddlewareLayer for RetryLayer {
                 let status = response.status().as_u16();
 
                 // Check if we should retry
-                if attempt < config.max_attempts
-                    && config.retryable_statuses.contains(&status)
-                    && next_req_opt.is_some()
-                {
-                    tracing::warn!(
-                        attempt = attempt + 1,
-                        max_attempts = config.max_attempts,
-                        status = status,
-                        "Request failed, retrying..."
-                    );
+                if attempt < config.max_attempts && config.retryable_statuses.contains(&status) {
+                    if let Some(req) = next_req_opt {
+                        tracing::warn!(
+                            attempt = attempt + 1,
+                            max_attempts = config.max_attempts,
+                            status = status,
+                            "Request failed, retrying..."
+                        );
 
-                    // Restore request for next attempt
-                    current_req = next_req_opt.unwrap();
+                        // Restore request for next attempt
+                        current_req = req;
 
-                    // Calculate and sleep for backoff duration
-                    let backoff = self_clone.calculate_backoff(attempt);
-                    tracing::debug!(backoff_ms = backoff.as_millis(), "Waiting before retry");
-                    tokio::time::sleep(backoff).await;
+                        // Calculate and sleep for backoff duration
+                        let backoff = self_clone.calculate_backoff(attempt);
+                        tracing::debug!(backoff_ms = backoff.as_millis(), "Waiting before retry");
+                        tokio::time::sleep(backoff).await;
 
-                    continue;
-                } else {
-                    // Success or no more retries
-                    if attempt > 0 {
+                        continue;
+                    }
+                }
+
+                // Success or no more retries
+                if attempt > 0 {
                         tracing::info!(
                             attempt = attempt + 1,
                             status = status,

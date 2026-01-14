@@ -159,7 +159,7 @@ pub fn extract_trace_context(request: &Request) -> TraceContext {
         .get(TRACEPARENT_HEADER)
         .and_then(|v| v.to_str().ok())
         .and_then(TraceContext::from_traceparent)
-        .unwrap_or_else(TraceContext::new);
+        .unwrap_or_default();
 
     // Extract tracestate if present
     if let Some(state) = headers.get(TRACESTATE_HEADER).and_then(|v| v.to_str().ok()) {

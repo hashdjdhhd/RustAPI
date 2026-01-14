@@ -148,6 +148,7 @@ impl StructuredLoggingLayer {
 
     /// Build a log entry from request and response data
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     fn build_entry(
         &self,
         message: &str,
@@ -262,8 +263,8 @@ impl MiddlewareLayer for StructuredLoggingLayer {
                 if let Some(ref sid) = span_id {
                     entry = entry.span_id(sid);
                 }
-                if let Some(ref sn) = Some(&service_name) {
-                    entry = entry.service_name(*sn);
+                if let Some(sn) = Some(&service_name) {
+                    entry = entry.service_name(sn);
                 }
 
                 entry.request_headers = request_headers.clone();

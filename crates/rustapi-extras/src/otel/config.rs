@@ -21,9 +21,10 @@ pub enum OtelExporter {
 }
 
 /// Trace sampling strategy
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum TraceSampler {
     /// Always sample all traces
+    #[default]
     AlwaysOn,
     /// Never sample traces
     AlwaysOff,
@@ -31,12 +32,6 @@ pub enum TraceSampler {
     TraceIdRatio(f64),
     /// Sample based on parent span decision
     ParentBased,
-}
-
-impl Default for TraceSampler {
-    fn default() -> Self {
-        Self::AlwaysOn
-    }
 }
 
 /// OpenTelemetry configuration

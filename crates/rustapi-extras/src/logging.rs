@@ -134,7 +134,7 @@ impl MiddlewareLayer for LoggingLayer {
             let request_id = req
                 .extensions()
                 .get::<String>()
-                .map(|s| s.clone())
+                .cloned()
                 .unwrap_or_else(|| "N/A".to_string());
 
             let start = Instant::now();
