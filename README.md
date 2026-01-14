@@ -132,14 +132,14 @@ cd benches
 
 ```toml
 [dependencies]
-rustapi-rs = "0.1.8"
+rustapi-rs = "0.1.9"
 ```
 
 Or with all features:
 
 ```toml
 [dependencies]
-rustapi-rs = { version = "0.1.8", features = ["full"] }
+rustapi-rs = { version = "0.1.9", features = ["full"] }
 ```
 
 ```rust
@@ -196,7 +196,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ### Optional Features
 
 ```toml
-rustapi-rs = { version = "0.1.8", features = ["jwt", "cors", "toon", "ws", "view"] }
+rustapi-rs = { version = "0.1.9", features = ["jwt", "cors", "toon", "ws", "view"] }
 ```
 
 | Feature | Description |

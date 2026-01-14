@@ -22,14 +22,14 @@ Add RustAPI to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustapi-rs = "0.1.8"
+rustapi-rs = "0.1.9"
 ```
 
 Or with specific features:
 
 ```toml
 [dependencies]
-rustapi-rs = { version = "0.1.8", features = ["jwt", "cors", "toon", "ws", "view"] }
+rustapi-rs = { version = "0.1.9", features = ["jwt", "cors", "toon", "ws", "view"] }
 ```
 
 ### Available Features
@@ -697,7 +697,7 @@ struct AnyBody { ... }
 Check that the `swagger-ui` feature is enabled (it's on by default):
 
 ```toml
-rustapi-rs = { version = "0.1.8", features = ["swagger-ui"] }
+rustapi-rs = { version = "0.1.9", features = ["swagger-ui"] }
 ```
 
 ### CLI Commands Not Working
